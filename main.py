@@ -1,83 +1,75 @@
-import os, asyncio, random, requests, textwrap
-import edge_tts
+import os, random, asyncio, textwrap
 from PIL import Image, ImageDraw, ImageFont
-from moviepy.editor import *
+from moviepy.editor import ColorClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip
+import edge_tts
 
-PEXELS_KEY = os.getenv("PEXELS_API_KEY") # GitHub Secret me add karna
+async def make_voice(text):
+    print("AI Voice bana raha hun...")
+    comm = edge_tts.Communicate(text, "en-US-ChristopherNeural")
+    await comm.save("voice.mp3")
+    print("Voice Ready")
+    return "voice.mp3"
 
-async def make_ai_voice(text, file="voice.mp3"):
-    # Real AI Voice - Christopher - US Male
-    communicate = edge_tts.Communicate(text, "en-US-ChristopherNeural")
-    await communicate.save(file)
-    return file
-
-def get_topic():
-    return random.choice([
-        "The Shocking Truth About Deep Sleep and Your Brain",
-        "Why 3 AM is The Most Dangerous Hour - Science Explained",
-        "This Habit is Destroying Your Future Without You Knowing"
-    ])
-
-def get_script(topic):
-    # 18 min = 2600 words
-    base = f"""Today we talk about {topic}. This is very important for your life.
-    Scientists discovered that your brain works in mysterious ways. If you understand this, your life will change completely.
-    Let me explain in detail with real examples and scientific facts.
-    """
-    return base * 120 # Lamba kar diya 18 min ke liye
-
-def download_pexels_clips(query, count=5):
-    clips = []
-    if not PEXELS_KEY:
-        # Agar key nahi to color clips (Safe)
-        for i in range(5):
-            clips.append(ColorClip((1920,1080), color=(random.randint(0,40),random.randint(0,40),random.randint(20,60)), duration=220).set_fps(24))
-        return clips
-    # Real Pexels API
-    headers = {"Authorization": PEXELS_KEY}
-    r = requests.get(f"https://api.pexels.com/videos/search?query={query}&per_page={count}", headers=headers)
-    # Download logic yahan ayega (abhi color se kaam chalao)
-    return clips
-
-def make_thumbnail(topic, out="thumbnail.jpg"):
-    img = Image.new('RGB', (1280,720), (5,5,20))
+def make_thumbnail(title):
+    print(f"Thumbnail bana raha hun: {title}")
+    img = Image.new('RGB', (1280, 720), color=(15, 15, 35))
     draw = ImageDraw.Draw(img)
-    try: font = ImageFont.truetype("arial.ttf", 80)
-    except: font = ImageFont.load_default()
-    lines = textwrap.wrap(topic.upper(), width=18)
-    y=100
-    for l in lines:
-        draw.text((60,y), l, fill="yellow", font=font, stroke_width=4, stroke_fill="red")
-        y+=110
-    img.save(out)
-    return out
+    # Text - Title ke hisab se
+    short = title.upper()[:30]
+    try:
+        # Bada font
+        font = ImageFont.load_default()
+        # PIL default pe bada likhne ke liye
+        draw.rectangle([(0,0),(1280,720)], fill=(10,10,30))
+        draw.rectangle([(10,10),(1270,710)], outline="yellow", width=8)
+        lines = textwrap.wrap(short, width=15)
+        y = 200
+        for line in lines:
+            draw.text((80, y), line, fill="yellow", font=font, stroke_width=2, stroke_fill="red")
+            y+=120
+        draw.text((80, y+50), "WATCH NOW!", fill="white")
+    except Exception as e:
+        print(f"Thumb error {e}")
+    img.save("thumbnail.jpg")
+    print("Thumbnail Ready: thumbnail.jpg")
+    return "thumbnail.jpg"
 
-async def main():
-    print("AGENT START")
-    topic = get_topic()
-    script = get_script(topic)
-    print(f"Topic: {topic}")
+def main_logic():
+    topics = [
+        "The Shocking Truth About Deep Sleep",
+        "Why 3 AM Is Dangerous For Your Brain",
+        "This Morning Habit Destroys Your Future"
+    ]
+    title = random.choice(topics)
+    print(f"TOPIC LOCKED: {title}")
     
-    # VOICE
-    await make_ai_voice(script, "voice.mp3")
+    # 18 min ke liye 2500 words
+    script = f"Today we discuss {title}. " * 400
+    print(f"Script Length: {len(script.split())} words")
+
+    # Voice
+    asyncio.run(make_voice(script))
     audio = AudioFileClip("voice.mp3")
-    print(f"Voice Duration: {audio.duration/60:.1f} min")
+    duration = audio.duration
+    print(f"FINAL DURATION: {duration/60:.2f} Minutes - LOCKED!")
+
+    # Video - No TextClip, sirf color background (Pexels key ke bina bhi chalega)
+    print("Video Clips bana raha hun...")
+    clip1 = ColorClip((1920,1080), color=(20,20,40), duration=duration/2)
+    clip2 = ColorClip((1920,1080), color=(40,20,20), duration=duration/2)
+    video = concatenate_videoclips([clip1, clip2])
+    video = video.set_audio(audio)
     
-    # VIDEO CLIPS
-    bg_clips = download_pexels_clips(topic)
-    # Duration ko voice ke equal karo
-    final_bg = concatenate_videoclips([c.set_duration(audio.duration/len(bg_clips)) for c in bg_clips])
+    print("Final Video Render...")
+    video.write_videofile("final_video.mp4", fps=24, codec='libx264', audio_codec='aac')
     
-    # PHOTO PLACEMENT + TEXT
-    txt = TextClip(topic, fontsize=60, color='white', stroke_color='black', stroke_width=2, method='caption', size=(1400,400))
-    txt = txt.set_position('center').set_duration(audio.duration)
+    # Thumbnail - Title ke hisab se text ke saath
+    make_thumbnail(title)
     
-    final = CompositeVideoClip([final_bg, txt]).set_audio(audio)
-    final.write_videofile("final_video.mp4", fps=24, codec='libx264')
-    
-    # THUMBNAIL
-    make_thumbnail(topic)
-    print("VIDEO + THUMBNAIL READY - 18-20 MIN")
+    print("=== ALL DONE ===")
+    print(f"TITLE: {title}")
+    print(f"VIDEO: final_video.mp4 - {duration/60:.1f} min")
+    print("THUMBNAIL: thumbnail.jpg - WITH TITLE TEXT")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main_logic()
