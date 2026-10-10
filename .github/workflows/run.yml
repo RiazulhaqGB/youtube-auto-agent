@@ -1,5 +1,4 @@
 name: YouTube Auto Agent Daily
-
 on:
   schedule:
     - cron: '0 15 * * *'
@@ -11,11 +10,16 @@ jobs:
     steps:
       - name: Code Download Karo
         uses: actions/checkout@v4
-
+      
       - name: Python Setup Karo
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-
+      
+      - name: Library Install Karo
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      
       - name: Agent Chalao
-        run: python main.py 
+        run: python main.py
