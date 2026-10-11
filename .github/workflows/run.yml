@@ -1,9 +1,9 @@
-name: 24/7 YouTube Auto Agent - 2X Daily
+name: Trending YouTube Auto Agent - 2X Daily
 
 on:
   schedule:
-    - cron: '0 4 * * *'   # Din 9 Baje - Pak Time 9 AM
-    - cron: '0 16 * * *'  # Raat 9 Baje - Pak Time 9 PM
+    - cron: '0 4 * * *'   # Subah 9 AM Pak - Trending Check 1
+    - cron: '0 16 * * *'  # Raat 9 PM Pak - Trending Check 2
   workflow_dispatch:
 
 jobs:
@@ -30,12 +30,13 @@ jobs:
         run: |
           echo "$YT_CREDS" > credentials.json
 
-      - name: Run 12-Steps Agent
+      - name: Run Trending Agent
         env:
           PEXELS_KEY: ${{ secrets.PEXELS_KEY }}
+          YT_API_KEY: ${{ secrets.YT_API_KEY }}
         run: |
-          python auto_upload_v3.py
+          python main.py
 
-      - name: Upload Done Report
+      - name: Upload Done
         if: always()
-        run: echo "Jani 2nd video upload complete!"
+        run: echo "Jani Trending Video Ready - 9AM & 9PM Done!"
