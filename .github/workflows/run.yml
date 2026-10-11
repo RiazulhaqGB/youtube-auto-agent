@@ -1,25 +1,41 @@
-name: YouTube Auto Agent Daily
+name: 24/7 YouTube Auto Agent - 2X Daily
+
 on:
-  workflow_dispatch:
   schedule:
-    - cron: '0 15 * * *'
+    - cron: '0 4 * * *'   # Din 9 Baje - Pak Time 9 AM
+    - cron: '0 16 * * *'  # Raat 9 Baje - Pak Time 9 PM
+  workflow_dispatch:
+
 jobs:
-  run-agent:
+  auto-upload:
     runs-on: ubuntu-latest
+    
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - name: Code Checkout
+        uses: actions/checkout@v4
+
+      - name: Python 3.10 Setup
+        uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-      - run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
-          pip install -r requirements.txt
-      - run: python main.py
-      - uses: actions/upload-artifact@v4
-        with:
-          name: final-video-and-thumbnail
-          path: |
-            final_video.mp4
-            thumbnail.jpg
-            voice.mp3
+
+      - name: Libraries Install
+        run: |
+          pip install --upgrade pip
+          pip install edge-tts moviepy==1.0.3 pillow google-api-python-client google-auth-httplib2 google-auth-oauthlib requests
+
+      - name: Create Credentials
+        env:
+          YT_CREDS: ${{ secrets.YT_CREDS }}
+        run: |
+          echo "$YT_CREDS" > credentials.json
+
+      - name: Run 12-Steps Agent
+        env:
+          PEXELS_KEY: ${{ secrets.PEXELS_KEY }}
+        run: |
+          python auto_upload_v3.py
+
+      - name: Upload Done Report
+        if: always()
+        run: echo "Jani 2nd video upload complete!"
