@@ -63,3 +63,17 @@ thumb.save("thumbnail.jpg")
 # STEP 9: UPLOAD (agar secrets hain to)
 print("[9] Ready to upload - final_video.mp4 + thumbnail.jpg")
 print("=== 12/12 DONE ===")
+# STEP 9: REAL UPLOAD
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
+try:
+    creds = Credentials(None, refresh_token=os.environ.get("YT_REFRESH_TOKEN"), token_uri="https://oauth2.googleapis.com/token", client_id=os.environ.get("YT_CLIENT_ID"), client_secret=os.environ.get("YT_CLIENT_SECRET"))
+    youtube = build("youtube","v3",credentials=creds)
+    req = youtube.videos().insert(part="snippet,status", body={"snippet":{"title":title[:95],"description":description,"tags":["motivation"],"categoryId":"22"},"status":{"privacyStatus":"public"}}, media_body=MediaFileUpload("final_video.mp4", resumable=True))
+    res = req.execute()
+    print(f"VIDEO UPLOADED: https://youtu.be/{res['id']}")
+    youtube.thumbnails().set(videoId=res['id'], media_body=MediaFileUpload("thumbnail.jpg")).execute()
+    print("THUMBNAIL DONE")
+except Exception as e:
+    print(f"Upload fail: {e} - Video local me hai")
