@@ -2,14 +2,13 @@ name: Trending YouTube Auto Agent - 2X Daily
 
 on:
   schedule:
-    - cron: '0 4 * * *'   # Subah 9 AM Pak - Trending Check 1
-    - cron: '0 16 * * *'  # Raat 9 PM Pak - Trending Check 2
+    - cron: '0 4 * * *'  # Subah 9 AM Pak
+    - cron: '0 16 * * *' # Sham 9 PM Pak
   workflow_dispatch:
 
 jobs:
   auto-upload:
     runs-on: ubuntu-latest
-    
     steps:
       - name: Code Checkout
         uses: actions/checkout@v4
@@ -22,18 +21,16 @@ jobs:
       - name: Libraries Install
         run: |
           pip install --upgrade pip
-          pip install edge-tts moviepy==1.0.3 pillow google-api-python-client google-auth-httplib2 google-auth-oauthlib requests
-
-      - name: Create Credentials
-        env:
-          YT_CREDS: ${{ secrets.YT_CREDS }}
-        run: |
-          echo "$YT_CREDS" > credentials.json
+          pip install -r requirements.txt
+          pip install edge-tts moviepy==1.0.3 Pillow requests
 
       - name: Run Trending Agent
         env:
           PEXELS_KEY: ${{ secrets.PEXELS_KEY }}
           YT_API_KEY: ${{ secrets.YT_API_KEY }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
         run: |
           python main.py
 
