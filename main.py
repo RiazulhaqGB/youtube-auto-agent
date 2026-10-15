@@ -68,13 +68,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 try:
-    
-# STEP 9: REAL UPLOAD
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
-try:
-    creds = Credentials(None, 
+   creds = Credentials(None, 
         refresh_token=os.environ.get("YT_REFRESH_TOKEN"), 
         token_uri="https://oauth2.googleapis.com/token",
         client_id=os.environ.get("YT_CLIENT_ID"),
