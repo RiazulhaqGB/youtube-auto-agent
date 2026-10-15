@@ -1,3 +1,6 @@
+from PIL import Image
+if not hasattr(Image, 'ANTIALIAS'):
+    Image.ANTIALIAS = Image.LANCZOS
 # 12 STEPS FINAL - EDGE-TTS HUMAN VOICE - NO KEY
 import os, random, textwrap, requests, time, asyncio
 from PIL import Image, ImageDraw, ImageFont
