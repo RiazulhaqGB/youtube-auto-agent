@@ -68,18 +68,20 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 try:
-   creds = Credentials(None, 
-        refresh_token=os.environ.get("YT_REFRESH_TOKEN"), 
+    creds = Credentials(
+        None,
+        refresh_token=os.environ.get("YT_REFRESH_TOKEN"),
         token_uri="https://oauth2.googleapis.com/token",
         client_id=os.environ.get("YT_CLIENT_ID"),
         client_secret=os.environ.get("YT_CLIENT_SECRET"),
-        scopes=["https://www.googleapis.com/auth/youtube.upload"])
-    youtube = build("youtube","v3",credentials=creds)
+        scopes=["https://www.googleapis.com/auth/youtube.upload"]
+    )
+    youtube = build("youtube", "v3", credentials=creds)
     media = MediaFileUpload("final_video.mp4", mimetype="video/mp4", resumable=True)
-    req = youtube.videos().insert(part="snippet,status", body={"snippet":{"title":title[:95],"description":description,"tags":["motivation"]}, "status":{"privacyStatus":"public"}}, media_body=media)
+    req = youtube.videos().insert(part="snippet,status", body={"snippet": {"title": title[:95], "description": desc[:4900], "categoryId": "27"}, "status": {"privacyStatus": "public", "selfDeclaredMadeForKids": False}})
     res = req.execute()
     print(f"VIDEO UPLOADED: https://youtu.be/{res['id']}")
-    youtube.thumbnails().set(videoId=res['id'], media_body=MediaFileUpload("thumbnail.jpg")).execute()
+    youtube.thumbnails().set(videoId=res['id'], media_body=MediaFileUpload("thumbnail.jpg", mimetype="image/jpeg")).execute()
     print("THUMBNAIL DONE")
 except Exception as e:
     print(f"Upload fail: {e} - Video local me hai")
