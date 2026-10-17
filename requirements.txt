@@ -1,5 +1,5 @@
 moviepy==1.0.3
-gTTS
+edge-tts
 Pillow
 requests
 google-api-python-client
