@@ -47,7 +47,7 @@ print(f"HASHTAGS: {hashtags_str}")
 # FIX 3: HUMAN URDU VOICE - edge-tts
 async def make_voice():
     print("Human Urdu Voice bana raha hun - Asad...")
-    voice = "ur-PK-Asad-Apollo" # Bilkul insan jaisa
+    voice = "ur-PK-AsadNeural" # Bilkul insan jaisa
     communicate = edge_tts.Communicate(full_text, voice)
     await communicate.save("voice.mp3")
 
