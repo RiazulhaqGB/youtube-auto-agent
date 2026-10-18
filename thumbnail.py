@@ -1,25 +1,40 @@
 from PIL import Image, ImageDraw, ImageFont
 import requests
 from io import BytesIO
+import textwrap
 
 def generate_thumbnail(topic, output_path="thumbnail.jpg"):
-    # Background image
-    url = "https://source.unsplash.com/1280x720/?cricket,stadium"
+    # FIX for new Pillow
+    if not hasattr(Image, 'ANTIALIAS'):
+        Image.ANTIALIAS = Image.LANCZOS
+
+    # Pollinations se cricket background - ye hamesha chalega
+    url = f"https://image.pollinations.ai/prompt/cricket stadium dramatic {requests.utils.quote(topic)}?width=1280&height=720&nologo=true"
     try:
-        r = requests.get(url, timeout=10)
+        r = requests.get(url, timeout=20)
         img = Image.open(BytesIO(r.content)).convert("RGB")
-    except:
-        img = Image.new("RGB", (1280,720), (0,0,0))
+        print(f"Background image loaded from Pollinations")
+    except Exception as e:
+        print(f"Background fail {e}, using black")
+        img = Image.new("RGB", (1280,720), (20,20,20))
     
     draw = ImageDraw.Draw(img)
-    # Yellow text with red border style
+    
+    # Font
     try:
-        font = ImageFont.truetype("arial.ttf", 90)
+        font = ImageFont.truetype("arial.ttf", 80)
     except:
-        font = ImageFont.load_default()
+        try:
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 80)
+        except:
+            font = ImageFont.load_default()
 
-    # Text with stroke (laal border, peela text)
-    draw.text((50, 50), topic, fill="yellow", stroke_width=8, stroke_fill="red", font=font)
+    # Text ko wrap karo taake screen se bahar na jaye
+    wrapped_text = textwrap.fill(topic, width=18)
+    
+    # Laal border, peela text + thoda shadow
+    x, y = 50, 200
+    draw.text((x, y), wrapped_text, fill="yellow", stroke_width=10, stroke_fill="red", font=font)
     
     img.save(output_path)
     print(f"Thumbnail saved: {output_path}")
