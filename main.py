@@ -1,3 +1,5 @@
+import sys
+print("--- LOG START ---", flush=True)
 import os
 import requests
 from PIL import Image
