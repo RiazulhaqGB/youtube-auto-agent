@@ -1,55 +1,43 @@
 import sys
 print("--- LOG START ---", flush=True)
+
+from script import generate_script
+from voice import generate_voice
+from images import generate_images
+from video import generate_video
+from youtube import upload_video
+from thumbnail import generate_thumbnail
 import os
-import requests
-from PIL import Image
-from moviepy.editor import *
+import traceback
 
-# FIX
-if not hasattr(Image, 'ANTIALIAS'):
-    Image.ANTIALIAS = Image.LANCZOS
+try:
+    print("1. Script bana raha hu...", flush=True)
+    topic, script = generate_script()
+    print(f"TOPIC: {topic}", flush=True)
 
-def get_topic_images(topic, count=5):
-    os.makedirs("clips", exist_ok=True)
-    images = []
-    for i in range(count):
-        url = f"https://image.pollinations.ai/prompt/{topic} cricket?width=1280&height=720&nologo=true&seed={i}"
-        try:
-            r = requests.get(url, timeout=30)
-            path = f"clips/clip_{i}.jpg"
-            with open(path, 'wb') as f:
-                f.write(r.content)
-            images.append(path)
-            print(f"Image {i+1} ready: {topic}")
-        except Exception as e:
-            print(f"Image {i} fail {e}")
-    return images
+    print("2. Voice bana raha hu...", flush=True)
+    audio_path = generate_voice(script)
+    print(f"Audio: {audio_path}", flush=True)
 
-def create_video_with_clips(image_paths, audio_path, output_path):
-    try:
-        audio = AudioFileClip(audio_path)
-        print(f"Voice Ready: {audio_path} Duration {audio.duration}")
-        
-        clips = []
-        duration_per_image = audio.duration / len(image_paths) if image_paths else 5
-        
-        for img_path in image_paths:
-            try:
-                clip = ImageClip(img_path, duration=duration_per_image)
-                clip = clip.resize(height=720).set_position('center')
-                clips.append(clip)
-                print(f"Clip ready {img_path}")
-            except Exception as e:
-                print(f"Clip error {img_path}: {e}")
-        
-        if not clips:
-            print("No clips found!")
-            return False
-            
-        video = CompositeVideoClip(clips, size=(1280,720)).set_audio(audio)
-        video.write_videofile(output_path, fps=24, codec='libx264', audio_codec='aac')
-        print(f"Video Ready: {output_path}")
-        return True
-    except Exception as e:
-        print(f"Video creation error: {e}")
-        return False
+    print("3. Images download kar raha hu...", flush=True)
+    image_paths = generate_images(topic)
+    print(f"Images: {len(image_paths)} mil gayi", flush=True)
+
+    print("4. Video bana raha hu...", flush=True)
+    video_path = generate_video(image_paths, audio_path)
+    print(f"Video: {video_path}", flush=True)
+
+    print("5. Thumbnail bana raha hu...", flush=True)
+    thumb_path = generate_thumbnail(topic)
+    print(f"Thumb: {thumb_path}", flush=True)
+
+    print("6. YouTube pe upload kar raha hu...", flush=True)
+    video_id = upload_video(video_path, thumb_path, topic, script)
+    print(f"UPLOAD DONE! Video ID: {video_id}", flush=True)
+
+except Exception as e:
+    print(f"ERROR AAYA: {e}", flush=True)
+    traceback.print_exc()
+    sys.exit(1)  # <-- Is se green tick nahi, red cross ayega fail hone par
+
+print("ALL DONE!", flush=True)
