@@ -52,31 +52,13 @@ title_final = f"{TOPIC} | World Trending Today"
 desc_final = f"{title_final}\n\n{full_text[:500]}\n\n#Trending #Viral #BreakingNews"
 
 # STEP 4: VOICE - EDGE-TTS WITH GTTS FALLBACK (NO MORE 403 ERROR)
-async def make_voice_edge(text):
-    import edge_tts
-    communicate = edge_tts.Communicate(text, "ur-PK-AsadNeural", rate="-15%", pitch="-5Hz")
-    await communicate.save("voice.mp3")
+from voice import generate_voice
 
-async def make_voice():
-    try:
-        print("Trying Edge-TTS Asad voice...")
-        await asyncio.wait_for(make_voice_edge(full_text), timeout=40)
-        print("Edge-TTS VOICE DONE")
-    except Exception as e:
-        print(f"Edge-TTS failed 403, switching to gTTS: {e}")
-        from gtts import gTTS
-        # gTTS fallback - kabhi fail nahi hota
-        tts = gTTS(text=full_text, lang='ur', slow=False)
-        tts.save("voice.mp3")
-        print("gTTS VOICE DONE - BACKUP")
+# ...
+# TOPIC se script bana ke
+SCRIPT = f"{TOPIC} par bari khabar..."
 
-asyncio.run(make_voice())
-
-asyncio.run(make_voice())
-
-from moviepy.editor import AudioFileClip, ImageClip, CompositeVideoClip
-audio = AudioFileClip("voice.mp3")
-TOTAL = audio.duration
+generate_voice(SCRIPT, "voice.mp3")
 
 # STEP 5: VIDEO CLIPS - FIXED NO BACKEND ERROR
 clips = []
