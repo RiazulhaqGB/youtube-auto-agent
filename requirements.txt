@@ -1,8 +1,8 @@
-edge-tts
+edge-tts==6.1.10
 moviepy==1.0.3
-Pillow
+Pillow==9.5.0
 requests
-imageio-ffmpeg
 google-api-python-client
 google-auth
 google-auth-oauthlib
+google-auth-httplib2
