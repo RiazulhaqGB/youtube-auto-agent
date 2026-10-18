@@ -1,109 +1,61 @@
-import os, random, requests, asyncio, textwrap, sys
-from PIL import Image, ImageDraw, ImageFont
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
+import os
 
-print("FINAL REAL AI AGENT - FULL READY")
-
-CLIENT_ID = os.getenv("YT_CLIENT_ID")
-CLIENT_SECRET = os.getenv("YT_CLIENT_SECRET")
-REFRESH_TOKEN = os.getenv("YT_REFRESH_TOKEN")
-creds = Credentials(None, refresh_token=REFRESH_TOKEN, token_uri='https://oauth2.googleapis.com/token', client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
-youtube = build('youtube', 'v3', credentials=creds)
-
-# STEP 1: WORLD TRENDING
-world_topics = []
-for region in ["US", "GB", "IN", "PK", "DE"]:
-    try:
-        res = youtube.videos().list(part="snippet", chart="mostPopular", regionCode=region, maxResults=8).execute()
-        for item in res.get('items', []):
-            t = item['snippet']['title']
-            if len(t) > 15 and "music" not in t.lower():
-                world_topics.append(t)
-    except: pass
-
-TOPIC = random.choice(world_topics) if world_topics else "World Breaking News Today"
-TOPIC = TOPIC.replace("|","-").replace("#","")[:90]
-print(f"TOPIC: {TOPIC}")
-
-# STEP 2: REAL AI ONLY - NO FALLBACK TEMPLATE
-def real_ai_writer(topic):
-    print("Calling REAL AI...")
-    for attempt in range(3):
-        try:
-            prompt = f"Write a detailed 800-word viral YouTube news script in Urdu Roman about: {topic}. Make it 100% unique, engaging, 12 paragraphs, no repeat, include background, reasons why viral, future impact, call to action. Start with Assalam o Alaikum dosto. Language: Urdu Roman + some English."
-            url = f"https://text.pollinations.ai/{requests.utils.quote(prompt)}?model=openai&seed={random.randint(1,9999999)}"
-            r = requests.get(url, timeout=60)
-            if r.status_code == 200 and len(r.text) > 400:
-                print(f"REAL AI SCRIPT RECEIVED on attempt {attempt+1}!")
-                return r.text[:5000]
-        except Exception as e:
-            print(f"AI try {attempt+1} fail {e}")
-            continue
-    print("AI FAILED 3 TIMES - STOPPING")
-    raise Exception("Real AI failed - Please retry workflow")
-
-full_text = real_ai_writer(TOPIC)
-print(f"SCRIPT LENGTH: {len(full_text)}")
-
-# STEP 3: TITLE DESC
-title_final = f"{TOPIC} | World Trending Today"
-desc_final = f"{title_final}\n\n{full_text[:500]}\n\n#Trending #Viral #BreakingNews"
-
-# STEP 4: VOICE - EDGE-TTS WITH GTTS FALLBACK (NO MORE 403 ERROR)
-from voice import generate_voice
-
-# ...
-# TOPIC se script bana ke
-SCRIPT = f"{TOPIC} par bari khabar..."
-
-generate_voice(SCRIPT, "voice.mp3")
-
-# STEP 5: VIDEO CLIPS - FIXED NO BACKEND ERROR
-clips = []
-num_clips = int(TOTAL // 4) + 1
-for i in range(num_clips):
-    start = i*4
-    dur = min(4, TOTAL-start)
-    if dur <= 0: break
-    img_path = f"c_{i}.jpg"
-    # Try download, agar fail to solid color image
-    try:
-        url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(TOPIC + ' news cinematic')}?width=1280&height=720&seed={random.randint(1,9999999)}&nologo=true"
-        r = requests.get(url, timeout=25)
-        if r.status_code==200 and len(r.content) > 8000:
-            open(img_path,"wb").write(r.content)
-            # Verify image is valid
-            Image.open(img_path).verify()
-        else:
-            raise Exception("Small file")
-    except:
-        # Fallback - valid jpg bana dega, kabhi error nahi ayega
-        img = Image.new('RGB',(1280,720),(random.randint(10,50), random.randint(10,50), random.randint(10,50)))
-        d = ImageDraw.Draw(img)
-        try:
-            f = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 50)
-        except:
-            f = ImageFont.load_default()
-        d.text((100,300), TOPIC[:40], fill=(255,255,255), font=f)
-        img.save(img_path, "JPEG")
-        print(f"Fallback image created {img_path}")
-    
-    clips.append(ImageClip(img_path, duration=dur).set_start(start))
-
-final = CompositeVideoClip(clips, size=(1280,720)).set_duration(TOTAL).set_audio(audio)
-final.write_videofile("final_video.mp4", fps=24, codec='libx264', audio_codec='aac', logger=None)
-print("VIDEO RENDERED")
-
-# STEP 6: THUMBNAIL WITH TEXT
-
+# ===== Hamari 3 alag files =====
 from thumbnail import generate_thumbnail
-generate_thumbnail(TOPIC)
+from voice import generate_voice
+from video import get_topic_images, create_video_with_clips
 
-# STEP 7: UPLOAD
-req = youtube.videos().insert(part="snippet,status", body={"snippet":{"title":title_final[:95],"description":desc_final,"tags":TOPIC.split()[:8],"categoryId":"25"},"status":{"privacyStatus":"public"}}, media_body=MediaFileUpload("final_video.mp4", resumable=True))
-res = req.execute()
-vid = res['id']
-youtube.thumbnails().set(videoId=vid, media_body=MediaFileUpload("thumbnail.jpg")).execute()
-print(f"DONE https://youtube.com/watch?v={vid}")
+# ================= CONFIG =================
+# Yahan se topic change kar sakte ho
+TOPIC = "Harry Brook Pakistan Team ke liye Khatra"
+
+SCRIPT = f"""{TOPIC}. 
+Aaj ke match mein Harry Brook Pakistan team ke liye sabse bada khatra ban gaye hain.
+Pakistan ko is khiladi se bachne ke liye khas planning karni hogi.
+Dekhte hain Pakistan team is challenge ka kaise samna karti hai."""
+
+THUMBNAIL_FILE = "thumbnail.jpg"
+VOICE_FILE = "voice.mp3"
+FINAL_VIDEO = "final_video.mp4"
+
+# ================= MAIN FUNCTION =================
+def main():
+    print(f"===== YOUTUBE AUTO AGENT START =====")
+    print(f"Topic: {TOPIC}")
+
+    # STEP 1: THUMBNAIL
+    print("\n[1/3] Thumbnail bana raha hun...")
+    try:
+        generate_thumbnail(TOPIC, output_path=THUMBNAIL_FILE)
+        print(f" Thumbnail Ready: {THUMBNAIL_FILE}")
+    except Exception as e:
+        print(f" Thumbnail Error: {e}")
+
+    # STEP 2: VOICE (Male Human)
+    print("\n[2/3] Male Human Voice bana raha hun...")
+    try:
+        generate_voice(SCRIPT, VOICE_FILE)
+        print(f" Voice Ready: {VOICE_FILE}")
+    except Exception as e:
+        print(f" Voice Error: {e}")
+
+    # STEP 3: VIDEO CLIPS (Har 6 sec baad change)
+    print("\n[3/3] Video clips bana raha hun (Topic ke hisab se)...")
+    try:
+        # Topic ke hisab se 5 images lo
+        images = get_topic_images(TOPIC, num_images=5)
+        
+        if images and len(images) > 0:
+            # Har image ko 6 sec ka clip banao + voice lagao
+            create_video_with_clips(images, VOICE_FILE, FINAL_VIDEO)
+            print(f" FINAL VIDEO READY: {FINAL_VIDEO}")
+        else:
+            print(" Images download nahi hui, internet check karo")
+    except Exception as e:
+        print(f" Video Error: {e}")
+
+    print("\n===== ALL DONE JANI! =====")
+    print(f"Files: {THUMBNAIL_FILE}, {VOICE_FILE}, {FINAL_VIDEO}")
+
+if __name__ == "__main__":
+    main()
