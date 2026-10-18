@@ -51,12 +51,26 @@ print(f"SCRIPT LENGTH: {len(full_text)}")
 title_final = f"{TOPIC} | World Trending Today"
 desc_final = f"{title_final}\n\n{full_text[:500]}\n\n#Trending #Viral #BreakingNews"
 
-# STEP 4: VOICE - HUMAN ASAD SLOW DEEP
-async def make_voice():
+# STEP 4: VOICE - EDGE-TTS WITH GTTS FALLBACK (NO MORE 403 ERROR)
+async def make_voice_edge(text):
     import edge_tts
-    communicate = edge_tts.Communicate(full_text, "ur-PK-AsadNeural", rate="-15%", pitch="-5Hz")
+    communicate = edge_tts.Communicate(text, "ur-PK-AsadNeural", rate="-15%", pitch="-5Hz")
     await communicate.save("voice.mp3")
-    print("VOICE DONE")
+
+async def make_voice():
+    try:
+        print("Trying Edge-TTS Asad voice...")
+        await asyncio.wait_for(make_voice_edge(full_text), timeout=40)
+        print("Edge-TTS VOICE DONE")
+    except Exception as e:
+        print(f"Edge-TTS failed 403, switching to gTTS: {e}")
+        from gtts import gTTS
+        # gTTS fallback - kabhi fail nahi hota
+        tts = gTTS(text=full_text, lang='ur', slow=False)
+        tts.save("voice.mp3")
+        print("gTTS VOICE DONE - BACKUP")
+
+asyncio.run(make_voice())
 
 asyncio.run(make_voice())
 
