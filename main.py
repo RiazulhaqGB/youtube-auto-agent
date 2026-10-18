@@ -78,7 +78,7 @@ from moviepy.editor import AudioFileClip, ImageClip, CompositeVideoClip
 audio = AudioFileClip("voice.mp3")
 TOTAL = audio.duration
 
-# STEP 5: VIDEO CLIPS - AI IMAGES TOPIC BASED
+# STEP 5: VIDEO CLIPS - FIXED NO BACKEND ERROR
 clips = []
 num_clips = int(TOTAL // 4) + 1
 for i in range(num_clips):
@@ -86,12 +86,28 @@ for i in range(num_clips):
     dur = min(4, TOTAL-start)
     if dur <= 0: break
     img_path = f"c_{i}.jpg"
+    # Try download, agar fail to solid color image
     try:
         url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(TOPIC + ' news cinematic')}?width=1280&height=720&seed={random.randint(1,9999999)}&nologo=true"
         r = requests.get(url, timeout=25)
-        open(img_path,"wb").write(r.content)
+        if r.status_code==200 and len(r.content) > 8000:
+            open(img_path,"wb").write(r.content)
+            # Verify image is valid
+            Image.open(img_path).verify()
+        else:
+            raise Exception("Small file")
     except:
-        Image.new('RGB',(1280,720),(20,20,20)).save(img_path)
+        # Fallback - valid jpg bana dega, kabhi error nahi ayega
+        img = Image.new('RGB',(1280,720),(random.randint(10,50), random.randint(10,50), random.randint(10,50)))
+        d = ImageDraw.Draw(img)
+        try:
+            f = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 50)
+        except:
+            f = ImageFont.load_default()
+        d.text((100,300), TOPIC[:40], fill=(255,255,255), font=f)
+        img.save(img_path, "JPEG")
+        print(f"Fallback image created {img_path}")
+    
     clips.append(ImageClip(img_path, duration=dur).set_start(start))
 
 final = CompositeVideoClip(clips, size=(1280,720)).set_duration(TOTAL).set_audio(audio)
