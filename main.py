@@ -115,26 +115,9 @@ final.write_videofile("final_video.mp4", fps=24, codec='libx264', audio_codec='a
 print("VIDEO RENDERED")
 
 # STEP 6: THUMBNAIL WITH TEXT
-try:
-    url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(TOPIC + ' dramatic breaking news')}?width=1280&height=720&seed={random.randint(1,9999999)}&nologo=true"
-    r = requests.get(url, timeout=25)
-    open("thumbnail.jpg","wb").write(r.content)
-    img = Image.open("thumbnail.jpg").convert("RGB")
-    draw = ImageDraw.Draw(img)
-    try:
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 62)
-        small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 38)
-    except:
-        font = ImageFont.load_default(); small = font
-    draw.rectangle([0,500,1280,720], fill=(0,0,0))
-    draw.rectangle([0,0,1279,719], outline=(255,255,0), width=10)
-    draw.text((30,505), "WORLD TRENDING!", fill=(255,255,0), font=small)
-    draw.text((30,550), textwrap.fill(TOPIC[:45], width=20), fill=(255,255,255), font=font, stroke_width=3, stroke_fill=(0,0,0))
-    img.save("thumbnail.jpg")
-    print("THUMBNAIL DONE")
-except Exception as e:
-    print(f"Thumb fail {e}")
-    Image.new('RGB',(1280,720),(255,0,0)).save("thumbnail.jpg")
+
+from thumbnail import generate_thumbnail
+generate_thumbnail(TOPIC)
 
 # STEP 7: UPLOAD
 req = youtube.videos().insert(part="snippet,status", body={"snippet":{"title":title_final[:95],"description":desc_final,"tags":TOPIC.split()[:8],"categoryId":"25"},"status":{"privacyStatus":"public"}}, media_body=MediaFileUpload("final_video.mp4", resumable=True))
