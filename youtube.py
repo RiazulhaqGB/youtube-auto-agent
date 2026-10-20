@@ -8,33 +8,35 @@ YT_CLIENT_ID = os.getenv("YT_CLIENT_ID")
 YT_CLIENT_SECRET = os.getenv("YT_CLIENT_SECRET")
 
 def get_youtube_service():
-    token_data = {
-        "client_id": YT_CLIENT_ID,
-        "client_secret": YT_CLIENT_SECRET,
-        "refresh_token": YT_REFRESH_TOKEN,
-        "type": "authorized_user"
-    }
-    creds = Credentials.from_authorized_user_info(token_data, ["https://www.googleapis.com/auth/youtube"])
+    print("Authenticating YouTube...", flush=True)
+    creds = Credentials(
+        None,
+        refresh_token=YT_REFRESH_TOKEN,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=YT_CLIENT_ID,
+        client_secret=YT_CLIENT_SECRET,
+        scopes=[
+            "https://www.googleapis.com/auth/youtube.upload",
+            "https://www.googleapis.com/auth/youtube"
+        ]
+    )
+    # Force refresh
+    from google.auth.transport.requests import Request
+    creds.refresh(Request())
+    print("Auth OK!", flush=True)
     return build("youtube", "v3", credentials=creds)
 
 def upload_video(title, description, tags):
     print(f"Uploading: {title}", flush=True)
-    
-    # VIDEO FILE FIX - hamesha final_video.mp4 hi upload hogi
     video_path = "final_video.mp4"
+    if not os.path.exists(video_path) and os.path.exists("output/final_video.mp4"):
+        video_path = "output/final_video.mp4"
+    
     if not os.path.exists(video_path):
-        # backup search
-        if os.path.exists("output/final_video.mp4"):
-            video_path = "output/final_video.mp4"
-        else:
-            print(f"ERROR: Video file not found! {video_path}", flush=True)
-            return
+        print(f"ERROR: Video not found {video_path}", flush=True)
+        return
 
-    print(f"Found video: {video_path}", flush=True)
-    
     youtube = get_youtube_service()
-    
-    # Clean title - YouTube pe | wala issue nahi
     clean_title = title[:95] if len(title) > 95 else title
     
     body = {
