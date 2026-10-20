@@ -1,29 +1,27 @@
-from gtts import gTTS
+import asyncio
+import edge_tts
 import os
 
-def generate_voice(text, output_path="voice.mp3"):
-    try:
-        if os.path.exists(output_path):
-            os.remove(output_path)
-    except:
-        pass
+async def generate_voice_async(text, output_path="voice.mp3"):
+    # Aapke liye BEST: Asad - gehra mardana Urdu
+    voice = "ur-PK-AsadNeural"
+    rate = "-10%"  # slow taake kahani jaisa lage
+    pitch = "-2Hz"
 
-    # Text saaf karo
     text = text.strip()
-    if len(text) < 5:
-        text = "Assalam o Alaikum dosto, aaj ki kahani sunte hain."
+    if len(text) < 10:
+        text = "Assalam o Alaikum dosto, aaj ki kahani aapki soch badal degi."
 
-    print(f"Generating voice: {text[:80]}...", flush=True)
+    print(f"Generating DEEP voice: {text[:80]}...", flush=True)
+    
+    communicate = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
+    await communicate.save(output_path)
+    return output_path
 
-    # Purana wala gTTS - Hindi/Urdu mix
-    tts = gTTS(text=text, lang='ur', slow=False)
-    tts.save(output_path)
-
+def generate_voice(text, output_path="voice.mp3"):
     if os.path.exists(output_path):
-        print(f"Voice OK, size: {os.path.getsize(output_path)}", flush=True)
-        return output_path
-    else:
-        raise Exception("Voice file not created!")
-
-if __name__ == "__main__":
-    generate_voice("Ye purani wali awaaz ka test hai")
+        try: os.remove(output_path)
+        except: pass
+    
+    asyncio.run(generate_voice_async(text, output_path))
+    return output_path
