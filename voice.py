@@ -1,21 +1,47 @@
 import asyncio
 import edge_tts
 import os
+import re
 
 async def generate_voice_async(text, output_path="voice.mp3"):
-    # Madhur - Roman Urdu ke liye No.1, accent saaf
     voice = "hi-IN-MadhurNeural"
-    rate = "-12%"  # halka slow, kahani jaisa
-    pitch = "-1Hz"
+    rate = "-8%"
+    pitch = "+0Hz"
 
     text = text.strip()
-    # Roman Urdu ko Hindi style me saaf karo taake accent sahi aaye
-    text = text.replace("kh", "kh").replace("gh", "gh")
+
+    # ACCENT FIX - Ye lafz Roman Urdu se Hindi/Urdu accent me badlo
+    accent_map = {
+        "bohat": "bahut",
+        "bohot": "bahut",
+        "zindagi": "jindagi",
+        "khuwab": "khwaab",
+        "khawab": "khwaab",
+        "paise": "paisa",
+        "aisi": "aesi",
+        "waisi": "vaesi",
+        "zyada": "jyada",
+        "khushi": "khushi",
+        "kamyabi": "kamyabi",
+        "dost": "dost",
+        "meh": "main",
+        "hu": "hun"
+    }
     
+    lower_text = text.lower()
+    for wrong, correct in accent_map.items():
+        lower_text = re.sub(r'\b' + wrong + r'\b', correct, lower_text)
+    
+    text = lower_text
+
+    # Extra spaces aur pause saaf
+    text = re.sub(r'\s+', ' ', text)
+    text = text.replace(" ,", ",").replace(" .", ".")
+
     if len(text) < 10:
         text = "Assalam o Alaikum dosto, aaj ki kahani bahut khaas hai."
 
-    print(f"Madhur Voice: {text[:80]}...", flush=True)
+    print(f"Accent Fixed Voice: {text[:80]}...", flush=True)
     
     communicate = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
     await communicate.save(output_path)
