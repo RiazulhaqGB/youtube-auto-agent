@@ -2,7 +2,6 @@ import os
 import random
 import sys
 
-# Aapki files import
 import script
 import voice
 import video
@@ -13,58 +12,58 @@ import images
 
 print("=== AUTO YOUTUBE AGENT START ===", flush=True)
 
-# 1. Topic Select
-topics = [
-    "Zindagi Ka Asal Raaz",
-    "Kamyabi Ka Wazifa",
-    "Ghareebi Se Nikalne Ka Tariqa",
-    "Dil Ko Sukoon Kaise Mile"
-]
+topics = ["Zindagi Ka Asal Raaz", "Kamyabi Ka Wazifa", "Ghareebi Se Nikalne Ka Tariqa"]
 topic = random.choice(topics)
 print(f"Topic: {topic}", flush=True)
 
 try:
-    # 2. Script Generate
     print("Step 1: Generating Script...", flush=True)
-    final_script = script.generate_script(topic) if hasattr(script, 'generate_script') else topic
+    # Fix: bina argument ke call
+    if hasattr(script, 'generate_script'):
+        try:
+            final_script = script.generate_script(topic)
+        except TypeError:
+            final_script = script.generate_script()
+    else:
+        final_script = topic
     
-    # Save for title.py to read
     with open("final_script.txt", "w", encoding="utf-8") as f:
         f.write(str(final_script))
 
-    # 3. Title / Hashtags Generate (Aapka wala code)
     print("Step 2: Generating Title...", flush=True)
     title_text, desc, hashtags, tags = title_gen.generate_title_and_hashtags(topic)
 
-    # 4. Voice Generate
     print("Step 3: Generating Voice...", flush=True)
     if hasattr(voice, 'generate_voice'):
-        voice.generate_voice(final_script)
-    else:
-        print("voice.py me function nahi mila", flush=True)
+        try:
+            voice.generate_voice(final_script)
+        except TypeError:
+            voice.generate_voice()
 
-    # 5. Images Generate
     print("Step 4: Generating Images...", flush=True)
     if hasattr(images, 'generate_images'):
-        images.generate_images(final_script)
+        try:
+            images.generate_images(final_script)
+        except TypeError:
+            images.generate_images()
 
-    # 6. Video Generate
-    print("Step 5: Generating Video... (Is me 5-7 min lagega)", flush=True)
+    print("Step 5: Generating Video... (5-7 min lagega)", flush=True)
     if hasattr(video, 'create_video'):
         video.create_video()
     elif hasattr(video, 'generate_video'):
         video.generate_video()
 
-    # 7. Thumbnail
-    print("Step 6: Generating Thumbnail...", flush=True)
+    print("Step 6: Thumbnail...", flush=True)
     if hasattr(thumbnail, 'create_thumbnail'):
-        thumbnail.create_thumbnail(title_text)
+        try:
+            thumbnail.create_thumbnail(title_text)
+        except:
+            thumbnail.create_thumbnail()
 
-    # 8. Upload to YouTube
-    print("Step 7: Uploading to YouTube...", flush=True)
+    print("Step 7: Uploading...", flush=True)
     youtube.upload_video(title_text, desc, tags)
 
-    print("=== ALL DONE, VIDEO UPLOADED ===", flush=True)
+    print("=== ALL DONE ===", flush=True)
 
 except Exception as e:
     print(f"CRITICAL ERROR: {e}", flush=True)
