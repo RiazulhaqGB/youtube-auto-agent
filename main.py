@@ -16,19 +16,27 @@ topics = ["Zindagi Ka Asal Raaz", "Kamyabi Ka Wazifa", "Ghareebi Se Nikalne Ka T
 topic = random.choice(topics)
 print(f"Topic: {topic}", flush=True)
 
+def to_text(data):
+    # tuple / list ko string me badlo
+    if isinstance(data, (tuple, list)):
+        return " ".join([str(x) for x in data])
+    return str(data)
+
 try:
     print("Step 1: Generating Script...", flush=True)
-    # Fix: bina argument ke call
     if hasattr(script, 'generate_script'):
         try:
-            final_script = script.generate_script(topic)
+            raw_script = script.generate_script(topic)
         except TypeError:
-            final_script = script.generate_script()
+            raw_script = script.generate_script()
     else:
-        final_script = topic
+        raw_script = topic
+    
+    final_script = to_text(raw_script)
+    print(f"Script length: {len(final_script)} chars", flush=True)
     
     with open("final_script.txt", "w", encoding="utf-8") as f:
-        f.write(str(final_script))
+        f.write(final_script)
 
     print("Step 2: Generating Title...", flush=True)
     title_text, desc, hashtags, tags = title_gen.generate_title_and_hashtags(topic)
@@ -47,7 +55,7 @@ try:
         except TypeError:
             images.generate_images()
 
-    print("Step 5: Generating Video... (5-7 min lagega)", flush=True)
+    print("Step 5: Generating Video...", flush=True)
     if hasattr(video, 'create_video'):
         video.create_video()
     elif hasattr(video, 'generate_video'):
@@ -58,7 +66,10 @@ try:
         try:
             thumbnail.create_thumbnail(title_text)
         except:
-            thumbnail.create_thumbnail()
+            try:
+                thumbnail.create_thumbnail()
+            except:
+                pass
 
     print("Step 7: Uploading...", flush=True)
     youtube.upload_video(title_text, desc, tags)
