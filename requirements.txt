@@ -1,8 +1,8 @@
-edge-tts==6.1.10
-gTTS
+requests
+pydub
 moviepy==1.0.3
 Pillow==9.5.0
-requests
+gTTS
 google-api-python-client
 google-auth
 google-auth-oauthlib
