@@ -5,12 +5,12 @@ import re
 
 async def generate_voice_async(text, output_path="voice.mp3"):
     voice = "hi-IN-MadhurNeural"
-    rate = "-8%"
+    rate = "+12%"   # TEZ kar diya! -8% se +12%
     pitch = "+0Hz"
 
     text = text.strip()
 
-    # ACCENT FIX - Ye lafz Roman Urdu se Hindi/Urdu accent me badlo
+    # ACCENT FIX
     accent_map = {
         "bohat": "bahut",
         "bohot": "bahut",
@@ -33,15 +33,13 @@ async def generate_voice_async(text, output_path="voice.mp3"):
         lower_text = re.sub(r'\b' + wrong + r'\b', correct, lower_text)
     
     text = lower_text
-
-    # Extra spaces aur pause saaf
     text = re.sub(r'\s+', ' ', text)
     text = text.replace(" ,", ",").replace(" .", ".")
 
     if len(text) < 10:
         text = "Assalam o Alaikum dosto, aaj ki kahani bahut khaas hai."
 
-    print(f"Accent Fixed Voice: {text[:80]}...", flush=True)
+    print(f"Fast Voice +12%: {text[:80]}...", flush=True)
     
     communicate = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
     await communicate.save(output_path)
