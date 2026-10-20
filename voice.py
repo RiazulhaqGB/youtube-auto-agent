@@ -1,60 +1,39 @@
+import asyncio
+import edge_tts
 import os
-import requests
-import base64
-from pydub import AudioSegment
 
-def tiktok_api(text, voice="en_us_002"):
-    apis = [
-        ("https://tiktok-tts.weilnet.workers.dev/api/generation", {"text": text, "voice": voice}),
-        ("https://tiktok-tts.weilnet.workers.dev/api/generation", {"text": text, "voice": "en_male_narration"}),
-    ]
-    for url, payload in apis:
-        try:
-            r = requests.post(url, json=payload, timeout=30)
-            if r.status_code == 200 and 'data' in r.json():
-                return base64.b64decode(r.json()['data'])
-        except Exception as e:
-            print(f"TikTok API fail: {e}", flush=True)
-            continue
-    return None
+async def generate_voice_async(text, output_path="voice.mp3"):
+    # BEST Urdu voices
+    voice = "ur-PK-UzmaNeural"  # ladki ki saaf Urdu awaaz
+    # voice = "ur-PK-AsadNeural" # agar larke ki chahiye to ye lagao
 
-def generate_voice(script_text, output_file="output/voice.mp3"):
-    os.makedirs("output", exist_ok=True)
-    script_text = script_text.replace("...", ".").strip()
+    # text saaf karo
+    text = text.strip()
+    if len(text) < 5:
+        text = "Assalam o Alaikum, aaj ki kahani shuru karte hain."
     
-    chunks = [script_text[i:i+2000] for i in range(0, len(script_text), 2000)]
-    print(f"Daily Voice: {len(chunks)} parts", flush=True)
+    print(f"Generating voice: {text[:50]}...", flush=True)
     
-    temp_files = []
-    for i, chunk in enumerate(chunks):
-        temp_path = f"output/temp_{i}.mp3"
-        audio_bytes = tiktok_api(chunk, "en_us_002")
-        
-        if audio_bytes:
-            with open(temp_path, "wb") as f:
-                f.write(audio_bytes)
-            print(f"Part {i+1} TikTok Done", flush=True)
-        else:
-            print(f"Part {i+1} gTTS backup", flush=True)
-            from gtts import gTTS
-            tts = gTTS(text=chunk, lang='ur', tld='com', slow=False)
-            tts.save(temp_path)
-        
-        temp_files.append(temp_path)
+    communicate = edge_tts.Communicate(text, voice)
+    await communicate.save(output_path)
+    print(f"Voice saved: {output_path}", flush=True)
+    return output_path
 
-    final = AudioSegment.empty()
-    for f in temp_files:
-        try:
-            final += AudioSegment.from_file(f)
-        except:
-            pass
+def generate_voice(text, output_path="voice.mp3"):
+    try:
+        # purani file delete
+        if os.path.exists(output_path):
+            os.remove(output_path)
+    except:
+        pass
     
-    final.export(output_file, format="mp3")
+    asyncio.run(generate_voice_async(text, output_path))
     
-    for f in temp_files:
-        if os.path.exists(f):
-            os.remove(f)
-    
-    mins = len(final) / 1000 / 60
-    print(f"FINAL VOICE READY: {mins:.2f} min", flush=True)
-    return output_file
+    if os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
+        print("Voice OK!", flush=True)
+        return output_path
+    else:
+        raise Exception("Voice file not created!")
+
+if __name__ == "__main__":
+    generate_voice("Ye test hai, ab awaaz bilkul saaf aayegi!")
