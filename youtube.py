@@ -1,63 +1,54 @@
 import os
-import json
-import re
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
-def get_authenticated_service():
-    client_id = os.getenv("YT_CLIENT_ID")
-    client_secret = os.getenv("YT_CLIENT_SECRET")
-    refresh_token = os.getenv("YT_REFRESH_TOKEN")
-    
-    if not all([client_id, client_secret, refresh_token]):
-        raise Exception("YT secrets missing!")
-    
-    creds_data = {
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "refresh_token": refresh_token,
+YT_REFRESH_TOKEN = os.getenv("YT_REFRESH_TOKEN")
+YT_CLIENT_ID = os.getenv("YT_CLIENT_ID")
+YT_CLIENT_SECRET = os.getenv("YT_CLIENT_SECRET")
+
+def get_youtube_service():
+    token_data = {
+        "client_id": YT_CLIENT_ID,
+        "client_secret": YT_CLIENT_SECRET,
+        "refresh_token": YT_REFRESH_TOKEN,
         "type": "authorized_user"
     }
-    
-    with open("token.json", "w") as f:
-        json.dump(creds_data, f)
-    
-    creds = Credentials.from_authorized_user_file("token.json", ["https://www.googleapis.com/auth/youtube.upload"])
+    creds = Credentials.from_authorized_user_info(token_data, ["https://www.googleapis.com/auth/youtube"])
     return build("youtube", "v3", credentials=creds)
 
-def clean_tags(tags_list):
-    clean = []
-    for tag in tags_list:
-        # sirf letters, numbers, space rakho, 30 char se zyada nahi
-        t = re.sub(r'[^a-zA-Z0-9 ]', '', str(tag)).strip()
-        if t and len(t) >= 2 and len(t) <= 25:
-            clean.append(t)
-        if len(clean) >= 12:  # max 12 tags
-            break
-    # agar abhi bhi khali ho to default tags
-    if not clean:
-        clean = ["history", "facts", "story"]
-    return clean
-
-def upload_video(video_path, title, description, tags=[]):
-    youtube = get_authenticated_service()
+def upload_video(title, description, tags):
+    print(f"Uploading: {title}", flush=True)
     
-    # Tags ko saaf karo - yahi error tha!
-    safe_tags = clean_tags(tags)
-    print(f"Original tags: {tags} -> Clean tags: {safe_tags}", flush=True)
+    # VIDEO FILE FIX - hamesha final_video.mp4 hi upload hogi
+    video_path = "final_video.mp4"
+    if not os.path.exists(video_path):
+        # backup search
+        if os.path.exists("output/final_video.mp4"):
+            video_path = "output/final_video.mp4"
+        else:
+            print(f"ERROR: Video file not found! {video_path}", flush=True)
+            return
 
-    request_body = {
+    print(f"Found video: {video_path}", flush=True)
+    
+    youtube = get_youtube_service()
+    
+    # Clean title - YouTube pe | wala issue nahi
+    clean_title = title[:95] if len(title) > 95 else title
+    
+    body = {
         "snippet": {
-            "title": title[:90],  # title 100 se kam hona chahiye
-            "description": description[:4000],
-            "tags": safe_tags,
-            "categoryId": "22"
+            "title": clean_title,
+            "description": description,
+            "tags": tags.split(",") if isinstance(tags, str) else tags,
+            "categoryId": "27"
         },
         "status": {"privacyStatus": "public", "selfDeclaredMadeForKids": False}
     }
+
     media = MediaFileUpload(video_path, chunksize=-1, resumable=True, mimetype="video/*")
-    print(f"Uploading: {title}", flush=True)
-    response = youtube.videos().insert(part="snippet,status", body=request_body, media_body=media).execute()
-    print(f"Uploaded! ID: {response['id']}", flush=True)
+    request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
+    response = request.execute()
+    print(f"UPLOAD SUCCESS: https://youtube.com/watch?v={response['id']}", flush=True)
     return response
