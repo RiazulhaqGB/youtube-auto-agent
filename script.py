@@ -7,12 +7,12 @@ from google.oauth2.credentials import Credentials
 
 # Aapke secrets
 YT_API_KEY = os.getenv("YT_API_KEY")
-TY_TOKEN_RAW = os.getenv("TY_FRESH_TOKAN")
+TY_TOKEN_RAW = os.getenv("TY_REFRESH_TOKAN")
 
 # --- Token ko file me likh do taake error na aaye ---
 def setup_token():
     if not TY_TOKEN_RAW:
-        print("TY_FRESH_TOKAN secret nahi mila", flush=True)
+        print("TY_REFRESH_TOKAN secret nahi mila", flush=True)
         return False
     try:
         # Agar secret me pura JSON hai to file bana do
@@ -98,7 +98,7 @@ def get_viral_from_search_api():
     return None
 
 def generate_script():
-    # 1. Pehle PK Trending (TY_FRESH_TOKAN se)
+    # 1. Pehle PK Trending (TY_REFRESH_TOKAN se)
     topic = get_trending_from_youtube()
     
     # 2. Nahi mila to YT_API_KEY se search viral
