@@ -69,5 +69,5 @@ def generate_script():
         return topic, script
     except Exception as e:
         print(f"Script error {e}", flush=True)
-        long_script = f"Assalam-o-Alaikum! Aaj ki video hai {topic} pe. " * 300
+        long_script = f"Assalam-o-Alaikum! Aaj ki video hai {topic} pe. " * 150
         return topic, long_script
