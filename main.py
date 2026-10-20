@@ -1,51 +1,57 @@
 import os
-import sys
-
-# Folder ka chakkar khatam
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# Agar files youtube-auto-agent folder ke andar hain to usko bhi path me daalo
-for root, dirs, files in os.walk(BASE_DIR):
-    if "video.py" in files:
-        sys.path.insert(0, root)
-        print(f"Found video.py in: {root}", flush=True)
-
-sys.path.insert(0, BASE_DIR)
-print("--- LOG START ---", flush=True)
-print(f"Files in BASE: {os.listdir(BASE_DIR)}", flush=True)
-
-from script import generate_script
-from voice import generate_voice
-from images import generate_images
-# Ab ye error nahi dega
-from video import generate_video
-from youtube import upload_video
-from thumbnail import generate_thumbnail
-import traceback
+import json
 
 try:
-    print("1. Script bana raha hu...", flush=True)
-    topic, script = generate_script()
-    print(f"TOPIC: {topic}", flush=True)
+    import google.generativeai as genai
+    GEMINI_AVAILABLE = True
+except:
+    GEMINI_AVAILABLE = False
 
-    print("2. Voice bana raha hu...", flush=True)
-    audio_path = generate_voice(script)
+def generate_title_and_hashtags(topic=""):
+    script_text = topic
+    try:
+        if os.path.exists("final_script.txt"):
+            with open("final_script.txt", 'r', encoding='utf-8') as f:
+                script_text = f.read()[:3000]
+        print(f"Title ke liye topic: {topic}", flush=True)
+    except Exception as e:
+        print(f"Read error {e}", flush=True)
+
+    if GEMINI_AVAILABLE and os.getenv("GEMINI_API_KEY"):
+        try:
+            genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            prompt = f"""
+            Topic: {topic}
+            Script: {script_text[:2000]}
+            
+            Create viral YouTube Title (Roman Urdu, 60 chars, high CTR), Description (Roman Urdu 2 lines + bullets), 15 Hashtags, 10 tags.
+            Return ONLY JSON: {{"title": "...", "description": "...", "hashtags": "#a #b", "tags": "a, b"}}
+            """
+            response = model.generate_content(prompt)
+            raw = response.text.strip().replace("```json","").replace("```","")
+            data = json.loads(raw)
+            
+            title = data.get("title", topic)
+            desc = data.get("description", topic)
+            hashtags = data.get("hashtags", "#worldofwisdom #viral #pakistan")
+            tags = data.get("tags", "world of wisdom")
+            
+            os.makedirs("output", exist_ok=True)
+            with open("output/title.txt", "w", encoding="utf-8") as f: f.write(title)
+            with open("output/description.txt", "w", encoding="utf-8") as f: f.write(f"{desc}\n\n{hashtags}")
+            with open("output/hashtags.txt", "w", encoding="utf-8") as f: f.write(hashtags)
+            
+            print(f"VIRAL TITLE: {title}", flush=True)
+            return title, desc, hashtags, tags
+        except Exception as e:
+            print(f"Title gen fail {e}", flush=True)
+
+    backup_title = f"{topic} | Jo 90% Log Nahi Jante"
+    backup_desc = f"{topic} - Is video me mukammal haqeeqat janiye. Like Share Subscribe!"
+    backup_hashtags = "#worldofwisdom #motivation #pakistan #viral #trending #islamic #kamyabi #wisdom"
+    backup_tags = f"{topic}, world of wisdom, viral"
     
-    print("3. Images download kar raha hu...", flush=True)
-    image_paths = generate_images(topic)
-
-    print("4. Video bana raha hu...", flush=True)
-    video_path = generate_video(image_paths, audio_path)
-
-    print("5. Thumbnail bana raha hu...", flush=True)
-    thumb_path = generate_thumbnail(topic)
-
-    print("6. YouTube pe upload kar raha hu...", flush=True)
-    video_id = upload_video(video_path, thumb_path, topic, script)
-    print(f"UPLOAD DONE! Video ID: {video_id}", flush=True)
-
-except Exception as e:
-    print(f"ERROR AAYA: {e}", flush=True)
-    traceback.print_exc()
-    sys.exit(1)
-
-print("ALL DONE!", flush=True)
+    os.makedirs("output", exist_ok=True)
+    with open("output/title.txt", "w", encoding="utf-8") as f: f.write(backup_title)
+    return backup_title, backup_desc, backup_hashtags, backup_tags
