@@ -1,73 +1,85 @@
 import os
-import random
-import json
-from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
-# SAHI NAAM - GitHub secrets ke mutabiq
-YT_REFRESH_TOKEN = os.getenv("YT_REFRESH_TOKEN")
-YT_CLIENT_ID = os.getenv("YT_CLIENT_ID")
-YT_CLIENT_SECRET = os.getenv("YT_CLIENT_SECRET")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-def get_authenticated_youtube():
-    token_data = {
-        "client_id": YT_CLIENT_ID,
-        "client_secret": YT_CLIENT_SECRET,
-        "refresh_token": YT_REFRESH_TOKEN,
-        "type": "authorized_user"
-    }
-    creds = Credentials.from_authorized_user_info(token_data, ["https://www.googleapis.com/auth/youtube"])
-    return build("youtube", "v3", credentials=creds)
+YT_API_KEY = os.getenv("YT_API_KEY")
 
 def get_trending_from_youtube():
-    try:
-        print("Trending check PK se...", flush=True)
-        youtube = get_authenticated_youtube()
-        request = youtube.videos().list(part="snippet,statistics", chart="mostPopular", regionCode="PK", maxResults=20)
-        response = request.execute()
-        viral_list = []
-        for item in response["items"]:
-            title = item["snippet"]["title"]
-            views = int(item.get("statistics", {}).get("viewCount", 0))
-            if views > 50000:
-                viral_list.append({"title": title, "views": views})
-        if viral_list:
-            viral_list.sort(key=lambda x: x["views"], reverse=True)
-            top = viral_list[0]
-            print(f"Viral Found: {top['title']}", flush=True)
-            return top["title"]
-        titles = [item["snippet"]["title"] for item in response["items"]]
-        return random.choice(titles) if titles else None
-    except Exception as e:
-        print(f"Trending fail: {e}", flush=True)
-        return None
+    if not YT_API_KEY:
+        raise Exception("YT_API_KEY missing in GitHub Secrets!")
+
+    print("Viral check via YouTube API Key (PK Trending)...", flush=True)
+    youtube = build("youtube", "v3", developerKey=YT_API_KEY)
+    request = youtube.videos().list(
+        part="snippet,statistics",
+        chart="mostPopular",
+        regionCode="PK",
+        maxResults=20
+    )
+    response = request.execute()
+
+    viral_list = []
+    for item in response["items"]:
+        title = item["snippet"]["title"]
+        views = int(item.get("statistics", {}).get("viewCount", 0))
+        viral_list.append({"title": title, "views": views})
+
+    viral_list.sort(key=lambda x: x["views"], reverse=True)
+    
+    print("Top 5 viral PK:", flush=True)
+    for v in viral_list[:5]:
+        print(f" - {v['title']} [{v['views']} views]", flush=True)
+    
+    top_title = viral_list[0]["title"]
+    print(f"Selected Viral Topic: {top_title}", flush=True)
+    return top_title
 
 def generate_script():
+    if not GEMINI_API_KEY:
+        raise Exception("GEMINI_API_KEY missing!")
+    if not YT_API_KEY:
+        raise Exception("YT_API_KEY missing!")
+
+    # 1. Viral topic lo YouTube API se
     topic = get_trending_from_youtube()
-    if not topic:
-        topic = "Qayamat Ki Nishaniyan Jo Puri Ho Chuki Hain"
+    print(f"FINAL TOPIC FOR GEMINI: {topic}", flush=True)
 
-    print(f"FINAL TOPIC: {topic}", flush=True)
+    # 2. Gemini se script likhwao
+    import google.generativeai as genai
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel('gemini-1.5-flash-latest')
 
-    try:
-        import google.generativeai as genai
-        genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        prompt = f"""
-        Topic: {topic}
-        Write VERY LONG 1300-1500 words script in Roman Urdu for YouTube World of Wisdom style.
-        Hook 100 words, 6 points each 200 words story, ending 150 words.
-        Topic: {topic}
-        """
-        response = model.generate_content(prompt)
-        script = response.text.strip()
-        if len(script.split()) < 900:
-            r2 = model.generate_content(f"Is ko 1300 words tak lamba karo: {script}")
-            script = r2.text.strip()
-        print(f"Script ready: {len(script.split())} words", flush=True)
-        return topic, script
-    except Exception as e:
-        print(f"Script error {e}", flush=True)
-        long_script = f"Assalam-o-Alaikum! Aaj ki video hai {topic} pe. " * 150
-        return topic, long_script
+    prompt = f"""
+    You are viral YouTube scriptwriter for channel 'World of Wisdom'.
+    Analyze this viral trending topic from Pakistan: "{topic}"
+    Write a 100% ORIGINAL, VIRAL script in Roman Urdu.
+
+    REQUIREMENTS:
+    - Language: Simple Roman Urdu
+    - Length: 1300-1500 words (12-15 min video)
+    - Style: Emotional, Islamic, Moral, Curious hook like trending videos
+    - Structure: Hook 100 words, 6 Points each 200 words with story/hadith, Ending 150 words with Dua + CTA
+    - Do NOT repeat sentences.
+    
+    Topic: {topic}
+    """
+
+    print("Generating script from Gemini...", flush=True)
+    response = model.generate_content(prompt)
+    
+    if not response.text:
+        raise Exception(f"Gemini returned empty! Full response: {response}")
+
+    script = response.text.strip()
+
+    if len(script.split()) < 1000:
+        print(f"Script short {len(script.split())} words, expanding via Gemini...", flush=True)
+        expand_prompt = f"Is script ko 1300 words tak expand karo, repetition ke bagair:\n\n{script}"
+        response2 = model.generate_content(expand_prompt)
+        script = response2.text.strip()
+
+    if len(script.split()) < 800:
+        raise Exception(f"Gemini failed to generate long script, got only {len(script.split())} words")
+
+    print(f"SCRIPT READY: {len(script.split())} words via Gemini", flush=True)
+    return topic, script
