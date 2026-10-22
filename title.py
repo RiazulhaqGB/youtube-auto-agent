@@ -1,81 +1,78 @@
 import os
 import json
-
-try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
-except:
-    GEMINI_AVAILABLE = False
+from google import genai
+from google.genai import types
 
 def generate_title_and_hashtags(script_path="final_script.txt", topic=""):
     """
-    Script ke mutabiq viral title, description, hashtags
+    Script ke mutabiq viral title, description, hashtags - Pure Urdu Script
     """
-    # 1. Script padho
     script_text = topic
     try:
         if os.path.exists(script_path):
             with open(script_path, 'r', encoding='utf-8') as f:
-                script_text = f.read()[:3000] # Pehle 3000 chars kaafi hain
+                script_text = f.read()[:3000]
         elif os.path.exists("script.txt"):
             with open("script.txt", 'r', encoding='utf-8') as f:
                 script_text = f.read()[:3000]
         else:
-            # Agar file nahi to topic hi use karo
             script_text = topic
-            
         print(f"Title ke liye script/topic: {script_text[:100]}...", flush=True)
     except Exception as e:
         print(f"Script read error {e}", flush=True)
         script_text = topic
 
-    # 2. Gemini se viral title + hashtags
-    if GEMINI_AVAILABLE and os.getenv("GEMINI_API_KEY"):
+    if os.getenv("GEMINI_API_KEY"):
         try:
-            genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
             
             prompt = f"""
             You are World of Wisdom YouTube expert for Pakistan audience.
-            
             Script/Topic: {script_text}
+
+            Task: Create VIRAL YouTube Title + Description + Hashtags in PURE URDU SCRIPT (اردو رسم الخط) - NO Roman Urdu, NO English words.
+
+            Rules:
+            1. Title: 1 VIRAL title, 60 chars max, clickable, high CTR, script se 100% related ho. 
+               - Har bar NAYA title banao, fix jumla "90% لوگ نہیں جانتے" ya "90% Log Nahi Jante" bilkul use mat karo.
+               - Topic ke mutabiq creative title banao jaise: "بیوقوف مردوں کی 9 نشانیاں" ya "کامیاب زندگی کا راز"
             
-            Task:
-            1. Create 1 VIRAL YouTube Title in Roman Urdu (60 chars max, clickable, high CTR)
-            Example: Bewaqoof Mardon Ki 9 Nishaniyan | 90% Log Ye Galti Karte Hain
+            2. Description: 2 lines hook in pure Urdu + 3 bullet points + CTA (Like, Share, Subscribe ko Urdu me: پسند کریں، شیئر کریں، سبسکرائب کریں)
             
-            2. Create 1 SEO Description in Roman Urdu (2 lines + 3 bullet points + call to action)
+            3. Hashtags: 15 Viral Hashtags in Urdu script + English mix nahi, sirf Urdu aur trending PK
+            Example: #دنیا_کی_باتیں #موٹیویشن #پاکستان
             
-            3. Create 15 Viral Hashtags: 5 Roman Urdu + 5 English + 5 Trending PK
-            Example: #bewaqoofmard #kamyabzindagi #motivation #worldofwisdom #pakistan
-            
-            4. Create 10 Tags for YouTube (comma separated)
-            
+            4. Tags: 10 Tags comma separated in Urdu
+
             Return ONLY valid JSON like this:
             {{
-              "title": "viral title here",
-              "description": "description here...",
+              "title": "viral title here in Urdu",
+              "description": "description here in Urdu...",
               "hashtags": "#tag1 #tag2 ...",
               "tags": "tag1, tag2, ..."
             }}
-            
-            Topic must match script: {topic}
+            Topic: {topic}
             """
             
-            response = model.generate_content(prompt)
+            response = client.models.generate_content(
+                model='gemini-flash-lite-latest',
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.95,
+                    max_output_tokens=2000
+                )
+            )
             raw = response.text.strip().replace("```json","").replace("```","")
-            
             data = json.loads(raw)
             
             title = data.get("title", topic)
-            description = data.get("description", f"{topic}\n\nIs video me {topic} ke bare me tafseel se baat ki gayi hai.\n\nLike, Share, Subscribe zaroor karen!")
-            hashtags = data.get("hashtags", "#worldofwisdom #motivation #pakistan")
-            tags = data.get("tags", "motivation, world of wisdom, pakistan")
+            description = data.get("description", f"{topic}\n\nاس ویڈیو میں {topic} کے بارے میں تفصیل سے بات کی گئی ہے۔")
+            hashtags = data.get("hashtags", "#دنیا_کی_باتیں #موٹیویشن #پاکستان")
+            tags = data.get("tags", "موٹیویشن, دنیا کی باتیں, پاکستان")
             
             print(f"VIRAL TITLE: {title}", flush=True)
             print(f"HASHTAGS: {hashtags}", flush=True)
             
-            # Files me save karo taake YouTube upload me use ho
             os.makedirs("output", exist_ok=True)
             with open("output/title.txt", "w", encoding="utf-8") as f:
                 f.write(title)
@@ -91,11 +88,11 @@ def generate_title_and_hashtags(script_path="final_script.txt", topic=""):
         except Exception as e:
             print(f"Title gen error: {e}, backup use kar raha hu", flush=True)
 
-    # Backup - Agar Gemini fail
-    backup_title = f"{topic} | Jo 90% Log Nahi Jante"
-    backup_desc = f"{topic}\n\nAaj ki is video me hum baat karenge {topic} ke bare me.\n\nYe video aapki zindagi badal sakti hai.\n\nLike aur Subscribe zaroor karen!\n\n#worldofwisdom"
-    backup_hashtags = "#worldofwisdom #motivation #pakistan #islamic #kamyabi #bewaqoofmard #viral #trending #urdu #wisdom"
-    backup_tags = f"{topic}, world of wisdom, motivation, pakistan, viral"
+    # Backup - Dynamic, not fixed
+    backup_title = f"{topic}"
+    backup_desc = f"{topic}\n\nآج کی اس ویڈیو میں ہم بات کریں گے {topic} کے بارے میں۔\n\nیہ ویڈیو آپ کی زندگی بدل سکتی ہے۔\n\nپسند کریں اور سبسکرائب ضرور کریں!\n\n#دنیا_کی_باتیں"
+    backup_hashtags = "#دنیا_کی_باتیں #موٹیویشن #پاکستان #اسلامی #کامیابی #وائرل #اردو"
+    backup_tags = f"{topic}, دنیا کی باتیں, موٹیویشن, پاکستان, وائرل"
     
     os.makedirs("output", exist_ok=True)
     with open("output/title.txt", "w", encoding="utf-8") as f:
@@ -108,7 +105,6 @@ def generate_title_and_hashtags(script_path="final_script.txt", topic=""):
     return backup_title, backup_desc, backup_hashtags, backup_tags
 
 if __name__ == "__main__":
-    # Test
-    t, d, h, tags = generate_title_and_hashtags(topic="Bewaqoof Mardon Ki Nishaniyan")
+    t, d, h, tags = generate_title_and_hashtags(topic="بیوقوف مردوں کی نشانیاں")
     print(t)
     print(h)
