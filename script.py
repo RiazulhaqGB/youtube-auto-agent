@@ -38,7 +38,7 @@ def generate_script():
     print(f"FINAL TOPIC FOR GEMINI: {topic}", flush=True)
     import google.generativeai as genai
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-2.0-flash')
+    model = genai.GenerativeModel('gemini-2.5-flash')
     prompt = f"""
     You are viral YouTube scriptwriter for channel 'World of Wisdom'.
     Analyze this viral trending topic from Pakistan: "{topic}"
