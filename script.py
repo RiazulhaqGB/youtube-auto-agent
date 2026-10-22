@@ -36,9 +36,13 @@ def generate_script():
         raise Exception("YT_API_KEY missing!")
     topic = get_trending_from_youtube()
     print(f"FINAL TOPIC FOR GEMINI: {topic}", flush=True)
-    import google.generativeai as genai
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash-8b')
+
+    # --- NEW GEMINI CLIENT - FIX FOR 404 ERROR ---
+    from google import genai
+    from google.genai import types
+    
+    client = genai.Client(api_key=GEMINI_API_KEY)
+    
     prompt = f"""
     You are viral YouTube scriptwriter for channel 'World of Wisdom'.
     Analyze this viral trending topic from Pakistan: "{topic}"
@@ -51,17 +55,35 @@ def generate_script():
     - Do NOT repeat sentences.
     Topic: {topic}
     """
-    print("Generating script from Gemini...", flush=True)
-    response = model.generate_content(prompt)
+    
+    print("Generating script from Gemini 2.5 Flash-Lite...", flush=True)
+    
+    # Naye models jo new API keys pe chalte hain
+    response = client.models.generate_content(
+        model='gemini-2.5-flash-lite',
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            temperature=0.9,
+            max_output_tokens=8000
+        )
+    )
+    
     if not response.text:
         raise Exception(f"Gemini returned empty! Full response: {response}")
+        
     script = response.text.strip()
+
     if len(script.split()) < 1000:
         print(f"Script short {len(script.split())} words, expanding via Gemini...", flush=True)
         expand_prompt = f"Is script ko 1300 words tak expand karo, repetition ke bagair:\n\n{script}"
-        response2 = model.generate_content(expand_prompt)
+        response2 = client.models.generate_content(
+            model='gemini-2.5-flash-lite',
+            contents=expand_prompt
+        )
         script = response2.text.strip()
+
     if len(script.split()) < 800:
         raise Exception(f"Gemini failed to generate long script, got only {len(script.split())} words")
+
     print(f"SCRIPT READY: {len(script.split())} words via Gemini", flush=True)
     return topic, script
