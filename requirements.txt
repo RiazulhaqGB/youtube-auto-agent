@@ -8,4 +8,4 @@ google-auth
 google-auth-oauthlib
 google-auth-httplib2
 edge-tts
-google-generativeai   <-- Ye wali line isi error ke liye add ki hai
+google-generativeai
