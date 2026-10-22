@@ -1,118 +1,115 @@
 from PIL import Image, ImageDraw, ImageFont
-import os, glob, random, textwrap, re
+import os, glob, random, re, requests
 
-# --- CONFIG ---
 W, H = 1280, 720
 BORDER = 24
+FONT_URL = "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoNastaliqUrdu/NotoNastaliqUrdu-Bold.ttf"
+FONT_PATH = "NotoNastaliqUrdu-Bold.ttf"
 
-def find_urdu_font():
-    possible = [
-        "Jameel Noori Nastaleeq.ttf",
-        "Jameel-Noori-Nastaleeq.ttf",
-        "NotoNastaliqUrdu-Bold.ttf",
-        "/usr/share/fonts/truetype/noto/NotoNastaliqUrdu-Bold.ttf",
-        "arial.ttf"
-    ]
-    for p in possible:
+def ensure_font():
+    if os.path.exists(FONT_PATH):
+        return FONT_PATH
+    # Try other names
+    for p in ["Jameel Noori Nastaleeq.ttf", "NotoNastaliqUrdu-Bold.ttf"]:
         if os.path.exists(p):
             return p
+    print(f"Downloading Urdu font...", flush=True)
+    try:
+        r = requests.get(FONT_URL, timeout=30)
+        if r.status_code == 200:
+            open(FONT_PATH, "wb").write(r.content)
+            print(f"Font downloaded: {FONT_PATH}", flush=True)
+            return FONT_PATH
+    except Exception as e:
+        print(f"Font download fail: {e}", flush=True)
     return None
 
-def wrap_urdu_text(text, max_chars=18):
-    # Urdu ke liye chote tukre me todna
+def wrap_text(text, limit=20):
     words = text.split()
-    lines = []
-    cur = ""
+    lines, cur = [], ""
     for w in words:
-        if len(cur + " " + w) <= max_chars:
+        if len(cur + " " + w) <= limit:
             cur = (cur + " " + w).strip()
         else:
             if cur: lines.append(cur)
             cur = w
     if cur: lines.append(cur)
-    return lines[:3]  # Max 3 lines
+    return lines[:3]
 
-def fix_urdu_render(text):
+def safe_urdu(text):
+    # Agar reshaper hai to use karo warna simple
     try:
         import arabic_reshaper
         from bidi.algorithm import get_display
         reshaped = arabic_reshaper.reshape(text)
         return get_display(reshaped)
     except:
-        return text  # agar library nahi to waise hi
+        return text
 
 def generate_thumbnail(title_text):
-    print(f"[THUMBNAIL] Topic: {title_text}", flush=True)
-    font_path = find_urdu_font()
-    print(f"[THUMBNAIL] Font: {font_path}", flush=True)
-
-    # 1. Background image lo
-    bg_files = glob.glob("images/*.jpg") + glob.glob("output/bg_*.jpg") + glob.glob("assets/*.jpg")
-    if bg_files:
-        bg = Image.open(random.choice(bg_files)).convert("RGB").resize((W, H))
-    else:
-        bg = Image.new("RGB", (W, H), (20, 10, 10))
-
-    # 2. Dark + gradient taake text chamke
-    dark = Image.new("RGB", (W, H), (0,0,0))
-    bg = Image.blend(bg, dark, 0.55)
+    print(f"[THUMBNAIL] Title: {title_text}", flush=True)
+    font_file = ensure_font()
     
+    # Background
+    bg_files = glob.glob("images/*.jpg") + glob.glob("output/*.jpg")
+    if bg_files:
+        try:
+            bg = Image.open(random.choice(bg_files)).convert("RGB").resize((W, H))
+        except:
+            bg = Image.new("RGB", (W, H), (25,25,25))
+    else:
+        bg = Image.new("RGB", (W, H), (25,25,25))
+
+    dark = Image.new("RGB", (W, H), (0,0,0))
+    bg = Image.blend(bg, dark, 0.5)
+    
+    # Font load - YEHI FIX HAI
+    if font_file and os.path.exists(font_file):
+        try:
+            big_font = ImageFont.truetype(font_file, 110)
+        except Exception as e:
+            print(f"Font load error {e}, using DejaVu", flush=True)
+            big_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 90)
+    else:
+        # Fallback - English me likh dega taake fail na ho
+        print("No Urdu font, using English fallback font", flush=True)
+        big_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 80)
+        # Urdu ko Roman me convert kar do taake error na aaye
+        title_text = re.sub(r'[^\x00-\x7F]+', ' ', title_text) # non-ascii hatao
+        if not title_text.strip():
+            title_text = "Qayamat Ki Nishani"
+
     draw = ImageDraw.Draw(bg)
+    lines = wrap_text(title_text, 22)
+    fixed = [safe_urdu(l) for l in lines]
 
-    # 3. Fonts
-    try:
-        if font_path:
-            big_font = ImageFont.truetype(font_path, 130)
-            small_font = ImageFont.truetype(font_path, 90)
-        else:
-            big_font = ImageFont.load_default()
-            small_font = big_font
-    except Exception as e:
-        print(f"Font load fail {e}", flush=True)
-        big_font = ImageFont.load_default()
-        small_font = big_font
+    y = 180
+    for line in fixed:
+        try:
+            bbox = draw.textbbox((0,0), line, font=big_font, stroke_width=12)
+            tw = bbox[2] - bbox[0]
+        except:
+            tw = 600
+        x = (W - tw)//2
+        # Peela + kala stroke
+        try:
+            draw.text((x, y), line, font=big_font, fill="#FFEB00", stroke_width=14, stroke_fill="black")
+        except UnicodeEncodeError:
+            # Last resort - English
+            draw.text((x, y), "Qayamat Ki Nishani", font=big_font, fill="#FFEB00", stroke_width=10, stroke_fill="black")
+        y += 150
 
-    # 4. TEXT FIX - Wrap + Reshape
-    title_text = title_text.strip().replace("  ", " ")[:50]
-    lines = wrap_urdu_text(title_text, 20)
-    fixed_lines = [fix_urdu_render(l) for l in lines]
-
-    # 5. Draw text center me - Peela + Kaala Stroke
-    y = 150
-    for i, line in enumerate(fixed_lines):
-        # Shadow pehle
-        # Main text
-        # Center align ke liye bbox nikalo
-        bbox = draw.textbbox((0,0), line, font=big_font, stroke_width=14)
-        text_w = bbox[2] - bbox[0]
-        x = (W - text_w) // 2
-        
-        # Stroke wala viral text
-        draw.text((x, y), line, font=big_font, fill="#FFEB00", 
-                  stroke_width=16, stroke_fill="black")
-        y += 160
-
-    # 6. Red Border + Corner cuts (Viral look)
-    final_img = Image.new("RGB", (W + BORDER*2, H + BORDER*2), "#FF0000")
+    final_img = Image.new("RGB", (W+BORDER*2, H+BORDER*2), "red")
     final_img.paste(bg, (BORDER, BORDER))
     
-    draw_f = ImageDraw.Draw(final_img)
-    # Upar ke kone par design
-    draw_f.polygon([(0,0), (140,0), (0,140)], fill="#FF0000")
-    draw_f.polygon([(W+BORDER*2,0), (W+BORDER*2-140,0), (W+BORDER*2,140)], fill="#FF0000")
-
     os.makedirs("output", exist_ok=True)
-    out1 = "output/thumbnail.jpg"
-    out2 = "output/final_thumbnail.jpg"
-    out3 = "thumbnail.jpg"
-    final_img.save(out1, quality=95)
-    final_img.save(out2, quality=95)
-    final_img.save(out3, quality=95)
+    for p in ["output/thumbnail.jpg", "thumbnail.jpg"]:
+        final_img.save(p, quality=95)
     
-    print(f"[THUMBNAIL] Saved: {out1}", flush=True)
-    return out1
+    print(f"[THUMBNAIL] Done", flush=True)
+    return "output/thumbnail.jpg"
 
-# Tumhare purane error ko khatam karne ke liye 3 naam
+# Compatibility - is liye tumhara error aa raha tha
 def create_thumbnail(t): return generate_thumbnail(t)
 def make_thumbnail(t): return generate_thumbnail(t)
 def create(t): return generate_thumbnail(t)
