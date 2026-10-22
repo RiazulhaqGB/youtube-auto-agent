@@ -34,14 +34,11 @@ def generate_script():
         raise Exception("GEMINI_API_KEY missing!")
     if not YT_API_KEY:
         raise Exception("YT_API_KEY missing!")
-
     topic = get_trending_from_youtube()
     print(f"FINAL TOPIC FOR GEMINI: {topic}", flush=True)
-
     import google.generativeai as genai
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash')
-
+    model = genai.GenerativeModel('gemini-2.0-flash')
     prompt = f"""
     You are viral YouTube scriptwriter for channel 'World of Wisdom'.
     Analyze this viral trending topic from Pakistan: "{topic}"
