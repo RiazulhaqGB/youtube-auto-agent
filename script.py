@@ -37,30 +37,35 @@ def generate_script():
     topic = get_trending_from_youtube()
     print(f"FINAL TOPIC FOR GEMINI: {topic}", flush=True)
 
-    # --- NEW GEMINI CLIENT - FIX FOR 404 ERROR ---
     from google import genai
     from google.genai import types
     
     client = genai.Client(api_key=GEMINI_API_KEY)
     
+    # --- FIX 1: PURE URDU SCRIPT + NO ENGLISH WORDS ---
     prompt = f"""
     You are viral YouTube scriptwriter for channel 'World of Wisdom'.
     Analyze this viral trending topic from Pakistan: "{topic}"
-    Write a 100% ORIGINAL, VIRAL script in Roman Urdu.
-    REQUIREMENTS:
-    - Language: Simple Roman Urdu
-    - Length: 1300-1500 words (12-15 min video)
-    - Style: Emotional, Islamic, Moral, Curious hook like trending videos
-    - Structure: Hook 100 words, 6 Points each 200 words with story/hadith, Ending 150 words with Dua + CTA
-    - Do NOT repeat sentences.
+
+    TASK: Write a 100% ORIGINAL, VIRAL script in PURE URDU SCRIPT (اردو رسم الخط).
+
+    STRICT RULES - INKO FOLLOW KARNA LAZMI HAI:
+    1. LANGUAGE: Sirf aur sirf Urdu script me likho. Jaise: یہ زندگی ایک امتحان ہے
+    2. NO ROMAN URDU: Kabhi bhi Roman English letters use mat karo.
+    3. NO ENGLISH WORDS: Koi bhi English ka lafz istemal mat karo. Jaise: book, word, point, like, share, subscribe, channel, video, script, topic, hook, story wagera bilkul mana hai.
+    4. Urdu Alternatives: 'book' ki jagah 'کتاب', 'like/share/subscribe' ki jagah 'پسند کریں، شیئر کریں، سبسکرائب کریں' ya 'چینل کو ضرور سبسکرائب کریں' ka Urdu tarjuma use karo.
+    5. Length: 1300-1500 words (12-15 min video)
+    6. Style: Emotional, Islamic, Moral, Curious hook
+    7. Structure: Hook 100 words, 6 Points each 200 words with story/hadith, Ending 150 words with Dua + CTA
+    8. Do NOT repeat sentences.
+
     Topic: {topic}
     """
     
-    print("Generating script from Gemini 2.5 Flash-Lite...", flush=True)
+    print("Generating script in Pure Urdu Script...", flush=True)
     
-    # Naye models jo new API keys pe chalte hain
     response = client.models.generate_content(
-        model='gemini-3.5-flash-lite',
+        model='gemini-flash-lite-latest',
         contents=prompt,
         config=types.GenerateContentConfig(
             temperature=0.9,
@@ -75,9 +80,9 @@ def generate_script():
 
     if len(script.split()) < 1000:
         print(f"Script short {len(script.split())} words, expanding via Gemini...", flush=True)
-        expand_prompt = f"Is script ko 1300 words tak expand karo, repetition ke bagair:\n\n{script}"
+        expand_prompt = f"Is Urdu script ko 1300 words tak expand karo, repetition ke bagair aur koi English lafz use kiye bagair:\n\n{script}"
         response2 = client.models.generate_content(
-            model='gemini-2.5-flash-lite',
+            model='gemini-flash-lite-latest',
             contents=expand_prompt
         )
         script = response2.text.strip()
@@ -85,5 +90,5 @@ def generate_script():
     if len(script.split()) < 800:
         raise Exception(f"Gemini failed to generate long script, got only {len(script.split())} words")
 
-    print(f"SCRIPT READY: {len(script.split())} words via Gemini", flush=True)
+    print(f"SCRIPT READY IN URDU: {len(script.split())} words", flush=True)
     return topic, script
