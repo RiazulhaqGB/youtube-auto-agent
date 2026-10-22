@@ -1,158 +1,89 @@
-import os
-import re
-import sys
-import glob
-import asyncio
-import shutil
-
+import os, re, sys, glob, asyncio, shutil, time
 import script
-import voice
-import video
-import youtube
-import title as title_gen
-import thumbnail
-import images
+import video, youtube, title as title_gen, thumbnail, images
+from edge_tts import Communicate
 
-print("=== AUTO YOUTUBE AGENT START - VIRAL MODE ===", flush=True)
+print("=== AUTO AGENT START - FIXED MODE ===", flush=True)
 
-def to_text(data):
-    if isinstance(data, (tuple, list)):
-        return " ".join([str(x) for x in data])
-    return str(data)
+VOICE = "ur-PK-AsadNeural" # Tumhari voice yahi hai, change nahi ki
 
-def clean_script_for_voice(text):
-    print("Cleaning script for voice...", flush=True)
-    text = re.sub(r'[*#_`"“”\[\]\(\)\{\}<>|]', '', text)
+def clean_text(text):
+    text = re.sub(r'[*#_`"“”\[\]\(\)\{\}<>|@]', '', text)
     text = re.sub(r'https?://\S+', '', text)
-    text = re.sub(r'\b(book|word|chapter|topic|point|hook|script|video)\b', '', text, flags=re.IGNORECASE)
     text = re.sub(r'\n{3,}', '\n\n', text)
-    text = re.sub(r' {2,}', ' ', text)
     return text.strip()
 
-def split_for_voice(text, max_len=850):
-    sentences = re.split(r'(?<=[۔؟!.])\s+', text)
-    chunks = []
-    cur = ""
+def split_chunks(text, max_len=700):
+    sentences = re.split(r'(?<=[۔؟!.!\n])\s+', text)
+    chunks, cur = [], ""
     for s in sentences:
         if len(cur) + len(s) < max_len:
             cur += " " + s
         else:
-            if cur.strip():
-                chunks.append(cur.strip())
+            if cur: chunks.append(cur.strip())
             cur = s
-    if cur.strip():
-        chunks.append(cur.strip())
-    return [c for c in chunks if len(c) > 20]
+    if cur: chunks.append(cur.strip())
+    return [c for c in chunks if len(c) > 10]
 
-try:
-    print("Step 1: Generating Script...", flush=True)
-    result = script.generate_script()
-    if isinstance(result, tuple) and len(result) == 2:
-        topic, final_script = result
-    else:
-        final_script = to_text(result)
-        topic = "Qayamat Ki Nishaniyan"
-
-    final_script = clean_script_for_voice(final_script)
-    print(f"FINAL TOPIC: {topic}", flush=True)
-    print(f"Script CLEANED: {len(final_script)} chars, {len(final_script.split())} words", flush=True)
-    
-    if len(final_script) < 100:
-        raise Exception("Script empty after cleaning!")
-
-    with open("final_script.txt", "w", encoding="utf-8") as f:
-        f.write(final_script)
-
-    print("Step 2: Viral Title...", flush=True)
-    try:
-        title_text, desc, hashtags, tags = title_gen.generate_title_and_hashtags("final_script.txt", topic)
-    except TypeError:
-        title_text, desc, hashtags, tags = title_gen.generate_title_and_hashtags(topic)
-    print(f"Title: {title_text}", flush=True)
-
-    print("Step 3: Voice - Chunking Mode (voice.py untouched)...", flush=True)
-    os.makedirs("output", exist_ok=True)
-    chunks = split_for_voice(final_script, 850)
-    print(f"Split into {len(chunks)} small chunks", flush=True)
-    
-    temp_audios = []
-    for i, ch in enumerate(chunks):
-        print(f"Generating voice chunk {i+1}/{len(chunks)} - {len(ch)} chars", flush=True)
+async def make_audio_safe(text, out_path):
+    for attempt in range(3):
         try:
-            if asyncio.iscoroutinefunction(voice.generate_voice):
-                audio_path = asyncio.run(voice.generate_voice(ch))
-            else:
-                audio_path = voice.generate_voice(ch)
-        except TypeError:
-            # agar voice.py argument nahi leta to hum final_script.txt overwrite karke call karenge
-            with open("final_script.txt", "w", encoding="utf-8") as f:
-                f.write(ch)
-            if asyncio.iscoroutinefunction(voice.generate_voice):
-                audio_path = asyncio.run(voice.generate_voice())
-            else:
-                audio_path = voice.generate_voice()
-        
-        # voice.py ne jahan bhi file banayi usko pakro
-        if not audio_path or not os.path.exists(audio_path):
-            for p in ["voice.mp3", "output/voice.mp3", "audio.mp3", "final.mp3", "output/final_voice.mp3"]:
-                if os.path.exists(p):
-                    audio_path = p
-                    break
-        
-        if not audio_path or not os.path.exists(audio_path):
-            raise Exception(f"Chunk {i} audio not created!")
-
-        chunk_out = f"output/chunk_{i}.mp3"
-        shutil.copy(audio_path, chunk_out)
-        temp_audios.append(chunk_out)
-        print(f"Chunk {i+1} saved: {chunk_out}", flush=True)
-
-    # Merge all chunks
-    list_file = "output/concat_list.txt"
-    final_audio = "output/voice.mp3"
-    with open(list_file, "w", encoding="utf-8") as lf:
-        for tf in temp_audios:
-            lf.write(f"file '{os.path.abspath(tf)}'\n")
-    
-    os.system(f'ffmpeg -y -f concat -safe 0 -i {list_file} -c copy {final_audio}')
-    
-    if not os.path.exists(final_audio):
-        raise Exception("Final voice merge failed!")
-    
-    print(f"FINAL AUDIO READY: {final_audio} - {os.path.getsize(final_audio)} bytes", flush=True)
-    audio_path = final_audio
-
-    print("Step 4: Images...", flush=True)
-    image_paths = None
-    if hasattr(images, 'generate_images'):
-        try:
-            image_paths = images.generate_images(final_script)
-        except TypeError:
-            image_paths = images.generate_images()
-    if not image_paths:
-        image_paths = glob.glob("images/*.jpg") + glob.glob("images/*.png") + glob.glob("output/*.jpg") + glob.glob("*.jpg")
-    print(f"Images found: {len(image_paths) if image_paths else 0}", flush=True)
-
-    print("Step 5: Video...", flush=True)
-    if hasattr(video, 'create_video'):
-        video.create_video(image_paths, audio_path)
-    elif hasattr(video, 'generate_video'):
-        video.generate_video(image_paths, audio_path)
-
-    print("Step 6: Thumbnail...", flush=True)
-    if hasattr(thumbnail, 'create_thumbnail'):
-        try:
-            thumbnail.create_thumbnail(title_text)
+            comm = Communicate(text, VOICE)
+            await comm.save(out_path)
+            if os.path.exists(out_path) and os.path.getsize(out_path) > 2000:
+                return True
         except Exception as e:
-            print(f"Thumbnail skip: {e}")
+            print(f"TTS Retry {attempt+1} failed: {e}", flush=True)
+            await asyncio.sleep(2)
+    return False
 
-    print("Step 7: Uploading to YouTube...", flush=True)
+async def generate_final_voice(full_text):
+    os.makedirs("output", exist_ok=True)
+    chunks = split_chunks(full_text, 700)
+    print(f"Voice ko {len(chunks)} tukron me baanta: {len(full_text)} chars", flush=True)
+    temp_files = []
+    for i, ch in enumerate(chunks):
+        out = f"output/c_{i}.mp3"
+        ok = await make_audio_safe(ch, out)
+        if ok:
+            temp_files.append(out)
+            print(f"Chunk {i+1}/{len(chunks)} OK", flush=True)
+        else:
+            print(f"Chunk {i+1} SKIP - NoAudio", flush=True)
+    
+    if not temp_files:
+        raise Exception("NoAudioReceived - Sab chunks fail, Edge TTS blocked")
+
+    list_file = "output/list.txt"
+    final = "output/voice.mp3"
+    with open(list_file, "w", encoding="utf-8") as f:
+        for tf in temp_files:
+            f.write(f"file '{os.path.abspath(tf)}'\n")
+    os.system(f'ffmpeg -y -f concat -safe 0 -i {list_file} -c copy {final}')
+    return final
+
+# --- MAIN FLOW ---
+try:
+    result = script.generate_script()
+    if isinstance(result, tuple): topic, final_script = result
+    else: final_script = str(result); topic = "Qayamat Ki Nishaniyan"
+
+    final_script = clean_text(final_script)
+    with open("final_script.txt", "w", encoding="utf-8") as f: f.write(final_script)
+    print(f"Script OK: {len(final_script.split())} words", flush=True)
+
+    title_text, desc, hashtags, tags = title_gen.generate_title_and_hashtags("final_script.txt", topic)
+
+    # VOICE FIX - voice.py ko call nahi kar rahe, direct robust function
+    audio_path = asyncio.run(generate_final_voice(final_script))
+    print(f"FINAL AUDIO: {audio_path} {os.path.getsize(audio_path)} bytes", flush=True)
+
+    image_paths = images.generate_images(final_script) if hasattr(images, 'generate_images') else glob.glob("images/*.jpg")
+    video.create_video(image_paths, audio_path)
+    thumbnail.create_thumbnail(title_text)
     youtube.upload_video(title_text, desc, tags)
-
-    print("=== ALL DONE - VIRAL SUCCESS ===", flush=True)
+    print("=== DONE ===", flush=True)
 
 except Exception as e:
     print(f"CRITICAL ERROR: {e}", flush=True)
-    import traceback
-    traceback.print_exc()
-    sys.exit(1)
+    import traceback; traceback.print_exc(); sys.exit(1)
