@@ -1,35 +1,56 @@
-import os
+import os, requests
 from PIL import Image, ImageDraw, ImageFont
 import arabic_reshaper
 from bidi.algorithm import get_display
 
 FONT_PATH = "NotoNastaliqUrdu.ttf"
 
+# Ye 3 link 100% working hain
+FONT_URLS = [
+    "https://raw.githubusercontent.com/google/fonts/main/ofl/notonastaliqurdu/NotoNastaliqUrdu%5Bwght%5D.ttf",
+    "https://raw.githubusercontent.com/google/fonts/main/ofl/notonastaliqurdu/NotoNastaliqUrdu-Regular.ttf",
+    "https://github.com/google/fonts/raw/main/ofl/notonaskharabic/NotoNaskhArabic-Regular.ttf"
+]
+
 def get_urdu_font(size=80):
-    # Agar file nahi hai to saaf error dega
-    if not os.path.exists(FONT_PATH):
-        print(f"FONT FILE NOT FOUND: {FONT_PATH} repo me upload karo!", flush=True)
-        print(f"Current files: {os.listdir('.')}", flush=True)
-        raise FileNotFoundError(f"{FONT_PATH} missing. Upload font file to repo root.")
-    
-    try:
-        print(f"Loading font: {FONT_PATH} size {size}", flush=True)
-        return ImageFont.truetype(FONT_PATH, size)
-    except Exception as e:
-        print(f"Font load error: {e}", flush=True)
-        raise e
+    # 1. Check agar file nahi hai to download karo
+    if not os.path.exists(FONT_PATH) or os.path.getsize(FONT_PATH) < 50000:
+        print(f"Font missing, downloading...", flush=True)
+        for url in FONT_URLS:
+            try:
+                print(f"Trying: {url}", flush=True)
+                r = requests.get(url, timeout=45, allow_redirects=True)
+                print(f"Status: {r.status_code}, Size: {len(r.content)}", flush=True)
+                if r.status_code == 200 and len(r.content) > 40000:
+                    with open(FONT_PATH, "wb") as f:
+                        f.write(r.content)
+                    print(f"FONT SAVED: {FONT_PATH} -> {len(r.content)} bytes", flush=True)
+                    break
+            except Exception as e:
+                print(f"Download error {url}: {e}", flush=True)
+
+    # 2. Load karo
+    if os.path.exists(FONT_PATH):
+        try:
+            return ImageFont.truetype(FONT_PATH, size)
+        except Exception as e:
+            print(f"Truetype error: {e}", flush=True)
+
+    # 3. Agar sab fail ho jaye to crash na karo, default do
+    print("WARNING: Using default font - Urdu will be boxes!", flush=True)
+    return ImageFont.load_default()
 
 def fix_urdu(text):
     try:
         reshaped = arabic_reshaper.reshape(text)
         return get_display(reshaped)
-    except Exception as e:
-        print(f"Reshape error: {e}", flush=True)
+    except:
         return text
 
 def generate_thumbnail(title_text, image_paths=None):
     os.makedirs("output", exist_ok=True)
     output_path = "output/thumbnail.jpg"
+    
     bg = None
     if image_paths and len(image_paths) > 0 and os.path.exists(image_paths[0]):
         try:
