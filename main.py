@@ -1,11 +1,21 @@
-import os, re, sys, glob, asyncio, shutil, time
-import script
-import video, youtube, title as title_gen, thumbnail, images
+import os, re, sys, glob, asyncio, time
+import script, video, youtube, title as title_gen, thumbnail, images
 from edge_tts import Communicate
+from datetime import datetime
+import pytz
 
-print("=== AUTO AGENT START - FIXED MODE ===", flush=True)
+print("=== WORLD TRENDING HUB AUTO AGENT START ===", flush=True)
 
-VOICE = "ur-PK-AsadNeural" # Tumhari voice yahi hai, change nahi ki
+CHANNEL_NAME = "World Trending Hub"
+VOICE = "ur-PK-AsadNeural" # Fix voice
+KARACHI_TZ = pytz.timezone("Asia/Karachi")
+
+def check_upload_time():
+    now = datetime.now(KARACHI_TZ)
+    if 8 <= now.hour <= 20:
+        return True
+    print(f"Abhi Karachi time {now.hour} baj rahe hain, 8AM-8PM ka wait kar raha hu...", flush=True)
+    return False
 
 def clean_text(text):
     text = re.sub(r'[*#_`"“”\[\]\(\)\{\}<>|@]', '', text)
@@ -40,20 +50,15 @@ async def make_audio_safe(text, out_path):
 async def generate_final_voice(full_text):
     os.makedirs("output", exist_ok=True)
     chunks = split_chunks(full_text, 700)
-    print(f"Voice ko {len(chunks)} tukron me baanta: {len(full_text)} chars", flush=True)
+    print(f"Voice ko {len(chunks)} tukron me baanta", flush=True)
     temp_files = []
     for i, ch in enumerate(chunks):
         out = f"output/c_{i}.mp3"
         ok = await make_audio_safe(ch, out)
-        if ok:
-            temp_files.append(out)
-            print(f"Chunk {i+1}/{len(chunks)} OK", flush=True)
-        else:
-            print(f"Chunk {i+1} SKIP - NoAudio", flush=True)
+        if ok: temp_files.append(out)
     
     if not temp_files:
-        raise Exception("NoAudioReceived - Sab chunks fail, Edge TTS blocked")
-
+        raise Exception("NoAudioReceived - Edge TTS blocked")
     list_file = "output/list.txt"
     final = "output/voice.mp3"
     with open(list_file, "w", encoding="utf-8") as f:
@@ -62,26 +67,31 @@ async def generate_final_voice(full_text):
     os.system(f'ffmpeg -y -f concat -safe 0 -i {list_file} -c copy {final}')
     return final
 
-# --- MAIN FLOW ---
-try:
-    result = script.generate_script()
-    if isinstance(result, tuple): topic, final_script = result
-    else: final_script = str(result); topic = "Qayamat Ki Nishaniyan"
+# MAIN FLOW
+if not check_upload_time():
+    print("Upload time nahi hai, exit. Cron dubara chalega.", flush=True)
+    sys.exit(0)
 
+try:
+    topic, final_script = script.generate_script(channel_name=CHANNEL_NAME)
     final_script = clean_text(final_script)
     with open("final_script.txt", "w", encoding="utf-8") as f: f.write(final_script)
-    print(f"Script OK: {len(final_script.split())} words", flush=True)
+    print(f"Script OK: {len(final_script.split())} words | Topic: {topic}", flush=True)
 
-    title_text, desc, hashtags, tags = title_gen.generate_title_and_hashtags("final_script.txt", topic)
+    title_text, desc, hashtags, tags = title_gen.generate_title_and_hashtags("final_script.txt", topic, channel_name=CHANNEL_NAME)
 
-    # VOICE FIX - voice.py ko call nahi kar rahe, direct robust function
     audio_path = asyncio.run(generate_final_voice(final_script))
-    print(f"FINAL AUDIO: {audio_path} {os.path.getsize(audio_path)} bytes", flush=True)
+    print(f"FINAL AUDIO: {os.path.getsize(audio_path)} bytes", flush=True)
 
-    image_paths = images.generate_images(final_script) if hasattr(images, 'generate_images') else glob.glob("images/*.jpg")
-    video.create_video(image_paths, audio_path)
-    thumbnail.create_thumbnail(title_text)
-    youtube.upload_video(title_text, desc, tags)
+    # FIX: topic bhejna hai, script nahi
+    image_paths = images.generate_images(topic, num_images=6)
+    video_path = video.create_video(image_paths, audio_path)
+    thumb_path = thumbnail.generate_thumbnail(title_text, image_paths)
+    result = youtube.upload_video(title_text, desc, tags, thumb_path)
+    
+    # Views ka log banao taake 24 ghante baad check ho sake
+    with open("last_upload.txt","w") as f:
+        f.write(f"{result['id']},{int(time.time())},{topic}")
     print("=== DONE ===", flush=True)
 
 except Exception as e:
