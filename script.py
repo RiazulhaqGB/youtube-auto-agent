@@ -1,95 +1,51 @@
-import os
-import re
+import os, re, random
 from googleapiclient.discovery import build
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 YT_API_KEY = os.getenv("YT_API_KEY")
 
 def get_trending_from_youtube():
-    if not YT_API_KEY:
-        raise Exception("YT_API_KEY missing!")
     youtube = build("youtube", "v3", developerKey=YT_API_KEY)
-    request = youtube.videos().list(part="snippet,statistics", chart="mostPopular", regionCode="PK", maxResults=20)
-    response = request.execute()
-    viral_list = []
-    for item in response["items"]:
-        title = item["snippet"]["title"]
-        views = int(item.get("statistics", {}).get("viewCount", 0))
-        viral_list.append({"title": title, "views": views})
-    viral_list.sort(key=lambda x: x["views"], reverse=True)
-    top_title = viral_list[0]["title"]
-    print(f"Selected Viral Topic: {top_title}", flush=True)
-    return top_title
+    # Mix topics: PK Trending + Global + Search
+    queries = ["trending today Pakistan", "viral news today", "mystery facts", "technology 2026", "world top story"]
+    search_q = random.choice(queries)
+    req = youtube.search().list(part="snippet", q=search_q, regionCode="PK", maxResults=15, order="viewCount", type="video")
+    res = req.execute()
+    viral = [item["snippet"]["title"] for item in res["items"]]
+    # Most Popular bhi mix karo
+    pop = youtube.videos().list(part="snippet,statistics", chart="mostPopular", regionCode="PK", maxResults=10).execute()
+    for it in pop["items"]:
+        viral.append(it["snippet"]["title"])
+    topic = random.choice(viral)
+    print(f"Selected Viral Topic: {topic} (from {search_q})", flush=True)
+    return topic
 
 def clean_script_for_voice(text):
-    """ Ye function script ko voice ke liye saaf karega """
-    print("Cleaning script for voice...", flush=True)
-    # 1. English ke fazool lafz hatao
-    bad_words = ["book", "word", "chapter", "point", "topic", "hook", "script", "video", "like", "share", "subscribe", "channel"]
-    for w in bad_words:
-        text = re.sub(rf'\b{w}\b', '', text, flags=re.IGNORECASE)
-    
-    # 2. Aise symbols hatao jo TTS ko fail karte hain: * # _ ``` [ ] ( ) 
     text = re.sub(r'[*#_`"“”\[\]\(\)\{\}]', '', text)
-    text = re.sub(r'https?://\S+', '', text) # links hatao
-    
-    # 3. Emojis hatao
-    emoji_pattern = re.compile("["
-        u"\U0001F600-\U0001F64F" u"\U0001F300-\U0001F5FF" u"\U0001F680-\U0001F6FF" u"\U0001F1E0-\U0001F1FF" "]+", flags=re.UNICODE)
-    text = emoji_pattern.sub(r'', text)
-    
-    # 4. Double spaces khatam
+    text = re.sub(r'https?://\S+', '', text)
     text = re.sub(r'\n{3,}', '\n\n', text)
-    text = re.sub(r' {2,}', ' ', text)
-    
-    # 5. Agar text me Roman Urdu bach gaya to usko bhi saaf karo, sirf Urdu rehne do
-    text = text.strip()
-    if len(text) < 100:
-        raise Exception("Script cleaning ke baad khali ho gaya!")
-    
-    return text
+    return text.strip()
 
-def generate_script():
-    if not GEMINI_API_KEY:
-        raise Exception("GEMINI_API_KEY missing!")
-    if not YT_API_KEY:
-        raise Exception("YT_API_KEY missing!")
+def generate_script(channel_name="World Trending Hub"):
     topic = get_trending_from_youtube()
-
     from google import genai
     from google.genai import types
     client = genai.Client(api_key=GEMINI_API_KEY)
-    
     prompt = f"""
-    You are viral YouTube scriptwriter for 'World of Wisdom'.
+    You are viral scriptwriter for YouTube channel '{channel_name}'.
     Topic: "{topic}"
     Write 100% ORIGINAL script in PURE URDU SCRIPT (اردو رسم الخط).
     RULES:
-    1. Sirf Urdu script: یہ زندگی ایک امتحان ہے
-    2. NO English words at all: book, word, like, share etc mana hai
-    3. NO symbols like * # [ ] 
-    4. Length: 1300-1500 words
-    5. Structure: Hook, 6 points with hadith/story, Ending with Dua
+    1. Sirf Urdu script, No English words like book, like, share etc.
+    2. Topic TRENDING hai, is liye Islamic fix story nahi. Topic ke mutabiq likho - agar technology hai to technology, mystery hai to mystery, news hai to news.
+    3. Length: 1300-1500 words
+    4. Structure: Strong Hook (5 sec), 5-6 interesting points with facts/story/example, Strong Ending with question.
+    5. No * # symbols.
     """
-    
-    response = client.models.generate_content(
-        model='gemini-flash-lite-latest',
-        contents=prompt,
-        config=types.GenerateContentConfig(temperature=0.9, max_output_tokens=8000)
-    )
-    
-    script = response.text.strip()
-    
-    # YAHAN FIX LAGAYA HAI - VOICE.PY KO TOUCH KIYE BAGAIR
-    script = clean_script_for_voice(script)
-
+    response = client.models.generate_content(model='gemini-flash-lite-latest', contents=prompt, config=types.GenerateContentConfig(temperature=0.95, max_output_tokens=8000))
+    script = clean_script_for_voice(response.text.strip())
     if len(script.split()) < 800:
-        print("Expanding...", flush=True)
-        response2 = client.models.generate_content(
-            model='gemini-flash-lite-latest',
-            contents=f"Is Urdu script ko 1300 words tak expand karo, English lafz ke bagair:\n\n{script}"
-        )
-        script = clean_script_for_voice(response2.text.strip())
-
-    print(f"SCRIPT READY & CLEANED: {len(script.split())} words", flush=True)
+        r2 = client.models.generate_content(model='gemini-flash-lite-latest', contents=f"Is Urdu script ko 1300 words tak expand karo:\n\n{script}")
+        script = clean_script_for_voice(r2.text.strip())
+    print(f"SCRIPT READY: {len(script.split())} words", flush=True)
     return topic, script
