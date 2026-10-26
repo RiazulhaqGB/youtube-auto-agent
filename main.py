@@ -43,7 +43,7 @@ def split_chunks(text, max_len=700):
 async def make_audio_safe(text, out_path):
     for attempt in range(3):
         try:
-            comm = Communicate(text, VOICE, rate="-15%", pitch="-20Hz")
+            comm = Communicate(text, VOICE, rate="-4%", pitch="-18Hz")
             await comm.save(out_path)
             if os.path.exists(out_path) and os.path.getsize(out_path) > 2000:
                 return True
