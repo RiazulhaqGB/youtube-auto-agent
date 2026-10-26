@@ -1,54 +1,35 @@
-import os, requests
+import os
 from PIL import Image, ImageDraw, ImageFont
 import arabic_reshaper
 from bidi.algorithm import get_display
 
 FONT_PATH = "NotoNastaliqUrdu.ttf"
-# Ye 2 naye link hain jo 100% chalte hain
-FONT_URLS = [
-    "https://raw.githubusercontent.com/google/fonts/main/ofl/notonastaliqurdu/NotoNastaliqUrdu-Regular.ttf",
-    "https://raw.githubusercontent.com/google/fonts/main/ofl/notonaskharabic/NotoNaskhArabic-Regular.ttf"
-]
 
 def get_urdu_font(size=80):
-    # Font hai ya nahi check karo
-    if not os.path.exists(FONT_PATH) or os.path.getsize(FONT_PATH) < 50000:
-        for url in FONT_URLS:
-            try:
-                print(f"Downloading font from: {url}", flush=True)
-                r = requests.get(url, timeout=40)
-                if r.status_code == 200 and len(r.content) > 50000:
-                    with open(FONT_PATH, "wb") as f:
-                        f.write(r.content)
-                    print(f"FONT DOWNLOAD SUCCESS: {len(r.content)} bytes", flush=True)
-                    break
-                else:
-                    print(f"Failed {r.status_code} size {len(r.content)}", flush=True)
-            except Exception as e:
-                print(f"Font download error: {e}", flush=True)
+    # Agar file nahi hai to saaf error dega
+    if not os.path.exists(FONT_PATH):
+        print(f"FONT FILE NOT FOUND: {FONT_PATH} repo me upload karo!", flush=True)
+        print(f"Current files: {os.listdir('.')}", flush=True)
+        raise FileNotFoundError(f"{FONT_PATH} missing. Upload font file to repo root.")
     
-    # Ab font load karo
     try:
-        if os.path.exists(FONT_PATH):
-            return ImageFont.truetype(FONT_PATH, size)
+        print(f"Loading font: {FONT_PATH} size {size}", flush=True)
+        return ImageFont.truetype(FONT_PATH, size)
     except Exception as e:
-        print(f"Truetype load failed: {e}", flush=True)
-
-    # Agar ab bhi fail ho to ye error throw karega taake aapko pata chale
-    print("CRITICAL: Urdu font not found, using fallback will fail", flush=True)
-    return ImageFont.truetype(FONT_PATH, size) if os.path.exists(FONT_PATH) else ImageFont.load_default()
+        print(f"Font load error: {e}", flush=True)
+        raise e
 
 def fix_urdu(text):
     try:
         reshaped = arabic_reshaper.reshape(text)
         return get_display(reshaped)
-    except:
+    except Exception as e:
+        print(f"Reshape error: {e}", flush=True)
         return text
 
 def generate_thumbnail(title_text, image_paths=None):
     os.makedirs("output", exist_ok=True)
     output_path = "output/thumbnail.jpg"
-    
     bg = None
     if image_paths and len(image_paths) > 0 and os.path.exists(image_paths[0]):
         try:
