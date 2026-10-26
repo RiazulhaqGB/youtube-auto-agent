@@ -86,7 +86,7 @@ try:
     # FIX: topic bhejna hai, script nahi
     image_paths = images.generate_images(topic, num_images=6)
     video_path = video.create_video(image_paths, audio_path)
-    thumb_path = thumbnail.generate_thumbnail(title_text, image_paths)
+    thumb_path = thumbnail.generate_thumbnail(title_text)
     result = youtube.upload_video(title_text, desc, tags, thumb_path)
     
     # Views ka log banao taake 24 ghante baad check ho sake
