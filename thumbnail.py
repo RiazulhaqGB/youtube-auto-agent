@@ -1,5 +1,8 @@
 import os, requests, random
 from PIL import Image, ImageDraw, ImageFont
+# Ye 2 library lazmi hain warna Urdu dibbe banega
+import arabic_reshaper
+from bidi.algorithm import get_display
 
 # Urdu font ka link - ye auto download hoga
 FONT_URL = "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf/NotoNastaliqUrdu/NotoNastaliqUrdu-Regular.ttf"
@@ -11,18 +14,27 @@ def get_urdu_font(size=80):
             print("Downloading Urdu font...", flush=True)
             r = requests.get(FONT_URL, timeout=30)
             open(FONT_PATH, "wb").write(r.content)
-        except:
-            pass
+            print("Font downloaded OK", flush=True)
+        except Exception as e:
+            print(f"Font download failed: {e}", flush=True)
     try:
         return ImageFont.truetype(FONT_PATH, size)
     except:
         return ImageFont.load_default()
 
+def fix_urdu(text):
+    # Yehi asal fix hai - dibbo ka hal
+    try:
+        reshaped = arabic_reshaper.reshape(text)
+        return get_display(reshaped)
+    except:
+        return text
+
 def generate_thumbnail(title_text, image_paths=None):
     os.makedirs("output", exist_ok=True)
     output_path = "output/thumbnail.jpg"
     
-    # 1. Background - agar video ki image mili to wahi use karo warna apna background
+    # 1. Background
     bg = None
     if image_paths and len(image_paths) > 0 and os.path.exists(image_paths[0]):
         try:
@@ -40,11 +52,9 @@ def generate_thumbnail(title_text, image_paths=None):
     draw = ImageDraw.Draw(bg)
     
     # 3. Title saaf karo - 2 lines me todo
-    text = title_text.strip()[:80] # zyada lamba na ho
-    # 2 hisso me tod do taake blue wale jaisa lage
+    text = title_text.strip()[:80]
     if len(text) > 25:
         mid = len(text)//2
-        # space ke qareeb todo
         space_idx = text.rfind(' ', 0, mid+10)
         if space_idx != -1:
             line1 = text[:space_idx]
@@ -56,20 +66,22 @@ def generate_thumbnail(title_text, image_paths=None):
         line1 = text
         line2 = ""
 
+    # Yahan fix lagaya hai
+    line1 = fix_urdu(line1)
+    line2 = fix_urdu(line2)
+
     font_big = get_urdu_font(85)
     font_small = get_urdu_font(75)
 
-    # 4. Text draw karo - White text + Black stroke (blue wale ki tarah viral style)
-    # Center me
+    # 4. Text draw - White + Black stroke
     def draw_centered_line(text_line, y, font):
-        bbox = draw.textbbox((0,0), text_line, font=font)
+        if not text_line.strip():
+            return
+        bbox = draw.textbbox((0,0), text_line, font=font, stroke_width=8)
         w = bbox[2] - bbox[0]
         x = (1280 - w) // 2
-        # Black stroke
-        for dx in [-3,-2,-1,0,1,2,3]:
-            for dy in [-3,-2,-1,0,1,2,3]:
-                draw.text((x+dx, y+dy), text_line, font=font, fill="black")
-        draw.text((x, y), text_line, font=font, fill="white")
+        # PIL ka naya stroke behtar hai aapke loop se
+        draw.text((x, y), text_line, font=font, fill="white", stroke_width=8, stroke_fill="black")
 
     if line2:
         draw_centered_line(line1, 220, font_big)
@@ -77,10 +89,10 @@ def generate_thumbnail(title_text, image_paths=None):
     else:
         draw_centered_line(line1, 290, font_big)
 
-    # 5. Neeche chota brand text (optional)
+    # 5. Brand text
     try:
         small_font = get_urdu_font(35)
-        draw.text((30, 670), "World Trending Hub", font=small_font, fill=(255,255,255,180))
+        draw.text((30, 670), "World Trending Hub", font=small_font, fill=(255,255,255))
     except:
         pass
 
