@@ -7,21 +7,26 @@ import pytz
 print("=== WORLD TRENDING HUB AUTO AGENT START ===", flush=True)
 
 CHANNEL_NAME = "World Trending Hub"
-VOICE = "ur-PK-AsadNeural" # Fix voice
+VOICE = "ur-PK-AsadNeural"
 KARACHI_TZ = pytz.timezone("Asia/Karachi")
 
-# --- 503 FIX: Retry System ---
 def is_retryable_error(e):
     msg = str(e).lower()
     return "503" in msg or "unavailable" in msg or "high demand" in msg or "500" in msg
 
 def check_upload_time():
+    # Agar aap GitHub se Force Run karoge to ye time check skip ho jayega
+    if os.getenv("FORCE_RUN") == "true":
+        print("FORCE RUN: Time check skip kar raha hu...", flush=True)
+        return True
+
     now = datetime.now(KARACHI_TZ)
     if 8 <= now.hour <= 20:
         return True
     print(f"Abhi Karachi time {now.hour} baj rahe hain, 8AM-8PM ka wait kar raha hu...", flush=True)
     return False
 
+# ... baaki aapka sara code same rahega neeche wala ...
 def clean_text(text):
     text = re.sub(r'[*#_`"“”\[\]\(\)\{\}<>|@]', '', text)
     text = re.sub(r'https?://\S+', '', text)
@@ -72,19 +77,17 @@ async def generate_final_voice(full_text):
     os.system(f'ffmpeg -y -f concat -safe 0 -i {list_file} -c copy {final}')
     return final
 
-# MAIN FLOW
 if not check_upload_time():
     print("Upload time nahi hai, exit. Cron dubara chalega.", flush=True)
     sys.exit(0)
 
-# --- Script Generation with 503 Retry ---
 topic = None
 final_script = None
 for attempt in range(5):
     try:
         print(f"Generating script... Attempt {attempt+1}/5", flush=True)
         topic, final_script = script.generate_script(channel_name=CHANNEL_NAME)
-        break # Success
+        break
     except Exception as e:
         print(f"Script Error: {e}", flush=True)
         if is_retryable_error(e) and attempt < 4:
@@ -103,7 +106,6 @@ try:
     with open("final_script.txt", "w", encoding="utf-8") as f: f.write(final_script)
     print(f"Script OK: {len(final_script.split())} words | Topic: {topic}", flush=True)
 
-    # Title generation bhi retry ke sath
     for attempt in range(3):
         try:
             title_text, desc, hashtags, tags = title_gen.generate_title_and_hashtags("final_script.txt", topic, channel_name=CHANNEL_NAME)
