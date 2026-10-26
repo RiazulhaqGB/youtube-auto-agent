@@ -31,6 +31,7 @@ def clean_text(text):
     text = re.sub(r'[*#_`"“”\[\]\(\)\{\}<>|@]', '', text)
     text = re.sub(r'https?://\S+', '', text)
     text = re.sub(r'\n{3,}', '\n\n', text)
+    text = text.replace("ہے", "ہے۔") # Waqfa ke liye
     return text.strip()
 
 def split_chunks(text, max_len=700):
@@ -48,7 +49,7 @@ def split_chunks(text, max_len=700):
 async def make_audio_safe(text, out_path):
     for attempt in range(3):
         try:
-            comm = Communicate(text, VOICE, rate="-4%", pitch="-18Hz")
+            comm = Communicate(text, VOICE, rate="+6%", pitch="+1Hz")
             await comm.save(out_path)
             if os.path.exists(out_path) and os.path.getsize(out_path) > 2000:
                 return True
