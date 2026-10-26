@@ -46,7 +46,7 @@ def safe_urdu(text):
     except:
         return text
 
-def generate_thumbnail(title_text):
+def generate_thumbnail(title_text, image_paths=None):
     print(f"[THUMBNAIL] Title: {title_text}", flush=True)
     font_file = ensure_font()
     
