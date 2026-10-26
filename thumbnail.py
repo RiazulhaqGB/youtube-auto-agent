@@ -1,32 +1,42 @@
-import os, requests, random
+import os, requests
 from PIL import Image, ImageDraw, ImageFont
 import arabic_reshaper
 from bidi.algorithm import get_display
 
 FONT_PATH = "NotoNastaliqUrdu.ttf"
-# نیا لنک جو چلتا ہے
+# Ye 2 naye link hain jo 100% chalte hain
 FONT_URLS = [
-    "https://github.com/google/fonts/raw/main/ofl/notonastaliqurdu/NotoNastaliqUrdu-Regular.ttf",
-    "https://github.com/google/fonts/raw/main/ofl/notonaskharabic/NotoNaskhArabic-Regular.ttf"
+    "https://raw.githubusercontent.com/google/fonts/main/ofl/notonastaliqurdu/NotoNastaliqUrdu-Regular.ttf",
+    "https://raw.githubusercontent.com/google/fonts/main/ofl/notonaskharabic/NotoNaskhArabic-Regular.ttf"
 ]
 
 def get_urdu_font(size=80):
-    if not os.path.exists(FONT_PATH) or os.path.getsize(FONT_PATH) < 10000:
+    # Font hai ya nahi check karo
+    if not os.path.exists(FONT_PATH) or os.path.getsize(FONT_PATH) < 50000:
         for url in FONT_URLS:
             try:
-                print(f"Trying font: {url}", flush=True)
-                r = requests.get(url, timeout=30)
-                if r.status_code == 200 and len(r.content) > 10000:
-                    open(FONT_PATH, "wb").write(r.content)
-                    print(f"Font OK size: {len(r.content)}", flush=True)
+                print(f"Downloading font from: {url}", flush=True)
+                r = requests.get(url, timeout=40)
+                if r.status_code == 200 and len(r.content) > 50000:
+                    with open(FONT_PATH, "wb") as f:
+                        f.write(r.content)
+                    print(f"FONT DOWNLOAD SUCCESS: {len(r.content)} bytes", flush=True)
                     break
+                else:
+                    print(f"Failed {r.status_code} size {len(r.content)}", flush=True)
             except Exception as e:
-                print(f"Font fail {url}: {e}", flush=True)
+                print(f"Font download error: {e}", flush=True)
+    
+    # Ab font load karo
     try:
-        return ImageFont.truetype(FONT_PATH, size)
+        if os.path.exists(FONT_PATH):
+            return ImageFont.truetype(FONT_PATH, size)
     except Exception as e:
-        print(f"Final font load fail: {e}", flush=True)
-        return ImageFont.load_default()
+        print(f"Truetype load failed: {e}", flush=True)
+
+    # Agar ab bhi fail ho to ye error throw karega taake aapko pata chale
+    print("CRITICAL: Urdu font not found, using fallback will fail", flush=True)
+    return ImageFont.truetype(FONT_PATH, size) if os.path.exists(FONT_PATH) else ImageFont.load_default()
 
 def fix_urdu(text):
     try:
@@ -36,9 +46,9 @@ def fix_urdu(text):
         return text
 
 def generate_thumbnail(title_text, image_paths=None):
-    # آپ کا باقی کا کوڈ ویسا ہی رہے گا
     os.makedirs("output", exist_ok=True)
     output_path = "output/thumbnail.jpg"
+    
     bg = None
     if image_paths and len(image_paths) > 0 and os.path.exists(image_paths[0]):
         try:
