@@ -11,3 +11,4 @@ edge-tts
 google-genai
 arabic-reshaper
 python-bidi
+pytz
